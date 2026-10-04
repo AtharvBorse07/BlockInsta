@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="light">
+    <title>Instagram blocked · BlockInsta</title>
+    <link rel="stylesheet" href="blocked.css">
+  </head>
+  <body>
+    <main class="page-shell">
+      <section class="block-card" aria-labelledby="page-title">
+        <img class="app-icon" src="../icons/icon-128.png" width="82" height="82" alt="">
+        <p class="eyebrow">BlockInsta</p>
+        <h1 id="page-title">Instagram is blocked</h1>
+        <p class="message">
+          You chose to pause Instagram on the web. Take a breath, then head
+          back to what you were doing.
+        </p>
+
+        <div id="active-actions">
+          <button id="back-button" class="primary-button" type="button">Go back</button>
+          <div class="unlock-panel">
+            <p>Need a little time?</p>
+            <div class="duration-grid" aria-label="Temporary unlock duration">
+              <button type="button" data-unlock-minutes="5">5 min</button>
+              <button type="button" data-unlock-minutes="15">15 min</button>
+              <button type="button" data-unlock-minutes="30">30 min</button>
+            </div>
+          </div>
+        </div>
+
+        <div id="unlocked-actions" class="unlocked-panel" hidden>
+          <p id="unlocked-label" class="unlocked-label">Temporarily unlocked</p>
+          <p id="countdown" class="countdown" aria-live="polite">5:00</p>
+          <p>Blocking will resume automatically.</p>
+          <button id="unlocked-back-button" class="primary-button" type="button">
+            Continue back
+          </button>
+          <button id="reenable-button" class="text-button" type="button">
+            Re-enable blocking now
+          </button>
+        </div>
+
+        <p id="action-note" class="action-note" aria-live="polite"></p>
+        <p id="error-message" class="error-message" role="alert" hidden></p>
+      </section>
+      <p class="scope-note">This extension blocks the website in your browser, not the Instagram app.</p>
+    </main>
+
+    <script src="../compatibility.js"></script>
+    <script src="../shared/settings.js"></script>
+    <script src="blocked.js"></script>
+  </body>
+</html>
+
