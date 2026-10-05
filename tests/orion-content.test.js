@@ -62,3 +62,11 @@ test("missing extension-page URLs have an accessible inline fallback", () => {
   assert.match(contentCss, /data-blockinsta-inline-blocked/);
   assert.match(contentCss, /prefers-color-scheme: dark/);
 });
+
+test("feed end card stays within narrow mobile viewports", () => {
+  assert.match(contentCss, /\.blockinsta-feed-end\s*\{[\s\S]*?box-sizing: border-box !important/);
+  assert.match(contentCss, /max-width: min\(470px, calc\(100vw - 24px\)\) !important/);
+  assert.match(contentCss, /@media \(max-width: 480px\)/);
+  assert.match(contentCss, /grid-template-columns: minmax\(0, 1fr\) !important/);
+  assert.match(contentCss, /min-height: 46px !important/);
+});

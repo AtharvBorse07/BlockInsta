@@ -111,5 +111,5 @@ test("post identity handles post and Reel permalinks without retaining queries",
 test("cutoff copy states the observed reason honestly", () => {
   assert.match(policy.getEndCopy("caught_up"), /Instagram's caught-up point/);
   assert.match(policy.getEndCopy("recommendations"), /could verify/);
-  assert.match(policy.getEndCopy("local_limit", 25), /after 25 posts/);
+  assert.match(policy.getEndCopy("local_limit", 25), /after 25 viewed posts/);
 });

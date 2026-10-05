@@ -251,7 +251,7 @@
     if (reason === CUTOFF_REASONS.RECOMMENDATIONS) {
       return "That is the end of posts BlockInsta could verify for this feed.";
     }
-    return `BlockInsta stopped after ${limit} posts because Instagram did not provide a clear end point.`;
+    return `BlockInsta stopped after ${limit} viewed posts because Instagram did not provide a clear end point.`;
   }
 
   return Object.freeze({

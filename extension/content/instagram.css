@@ -69,7 +69,9 @@ html[data-blockinsta-limit-home="true"][data-blockinsta-feed-state="cutoff_reach
 }
 
 .blockinsta-feed-end {
-  width: min(100%, 470px) !important;
+  box-sizing: border-box !important;
+  width: calc(100% - 24px) !important;
+  max-width: min(470px, calc(100vw - 24px)) !important;
   margin: 22px auto 40px !important;
   padding: 28px !important;
   border: 1px solid rgba(142, 133, 190, 0.35) !important;
@@ -98,10 +100,12 @@ html[data-blockinsta-limit-home="true"][data-blockinsta-feed-state="cutoff_reach
 }
 
 .blockinsta-feed-end__message {
+  max-width: 390px !important;
   margin: 12px auto 20px !important;
   color: #606b82 !important;
   font-size: 14px !important;
   line-height: 1.55 !important;
+  overflow-wrap: anywhere !important;
 }
 
 .blockinsta-feed-end__actions {
@@ -114,6 +118,7 @@ html[data-blockinsta-limit-home="true"][data-blockinsta-feed-state="cutoff_reach
 .blockinsta-feed-end__actions button,
 .blockinsta-feed-end__actions a,
 .blockinsta-feed-status__link {
+  box-sizing: border-box !important;
   display: inline-flex !important;
   align-items: center !important;
   justify-content: center !important;
@@ -126,6 +131,38 @@ html[data-blockinsta-limit-home="true"][data-blockinsta-feed-state="cutoff_reach
   font: 700 13px/1 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
   text-decoration: none !important;
   cursor: pointer !important;
+}
+
+@media (max-width: 480px) {
+  .blockinsta-feed-end {
+    margin: 16px auto 32px !important;
+    padding: 22px 18px 20px !important;
+    border-radius: 18px !important;
+  }
+
+  .blockinsta-feed-end h2 {
+    font-size: 22px !important;
+  }
+
+  .blockinsta-feed-end__message {
+    margin: 10px auto 18px !important;
+    font-size: 14px !important;
+    line-height: 1.45 !important;
+  }
+
+  .blockinsta-feed-end__actions {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) !important;
+    width: 100% !important;
+  }
+
+  .blockinsta-feed-end__actions button,
+  .blockinsta-feed-end__actions a,
+  .blockinsta-feed-status__link {
+    width: 100% !important;
+    min-height: 46px !important;
+    padding: 0 14px !important;
+  }
 }
 
 .blockinsta-feed-end__actions a,

@@ -238,6 +238,29 @@ async function runFeedDomSmoke(browserWebSocketUrl, port) {
       <header><a href="https://www.instagram.com/p/\${id}/">friend</a><span>\${label}</span></header>
       <time datetime="2026-10-04T12:00:00Z"></time>
     </article>\`;
+    const fallbackArticle = (id) => \`<article id="\${id}">
+      <header><a href="https://www.instagram.com/friend/">friend</a></header>
+      <time datetime="2026-10-04T12:\${id}:00Z"></time>
+    </article>\`;
+    const manualVisibility = () => {
+      let callback = null;
+      const observed = new Set();
+      return {
+        create(nextCallback) {
+          callback = nextCallback;
+          return {
+            disconnect() { observed.clear(); },
+            observe(element) { observed.add(element); },
+            unobserve(element) { observed.delete(element); }
+          };
+        },
+        show(element) {
+          if (callback && observed.has(element)) {
+            callback([{ target: element, isIntersecting: true, intersectionRatio: 1 }]);
+          }
+        }
+      };
+    };
     const settle = async () => {
       await nextFrame();
       await nextFrame();
@@ -248,17 +271,21 @@ async function runFeedDomSmoke(browserWebSocketUrl, port) {
     document.body.innerHTML = \`<main style="display:grid;grid-template-columns:500px 240px;gap:80px">
       <div id="right-rail" style="grid-column:2;grid-row:1"><span>Suggested for you</span></div>
       <section id="feed-column" style="grid-column:1;grid-row:1">
-        \${article("first")}
-        \${article("suggested", "Suggested for you")}
-        \${article("second")}
-        <div id="caught-up"><span>You're all caught up</span><button id="view-older">View older posts</button></div>
-        \${article("later")}
+        <div id="feed-list">
+          \${article("first")}
+          \${article("suggested", "Suggested for you")}
+          \${article("second")}
+          <div id="caught-up"><span>You're all caught up</span><button id="view-older">View older posts</button></div>
+          \${article("later")}
+        </div>
+        <div id="generic-tail"><img alt="recommended post"></div>
         <div role="progressbar" id="spinner"></div>
       </section>
     </main>\`;
     let guard = globalThis.BlockInstaFeedGuard.createFeedGuard({
       window: makeWindow(),
-      document
+      document,
+      viewedDwellMs: 0
     });
     guard.updateSettings(settings);
     await settle();
@@ -280,34 +307,133 @@ async function runFeedDomSmoke(browserWebSocketUrl, port) {
       suggestedHidden: document.querySelector("#suggested").dataset.blockinstaFeedHidden,
       laterHidden: document.querySelector("#later").dataset.blockinstaAfterCutoff,
       firstHidden: document.querySelector("#first").dataset.blockinstaAfterCutoff || null,
+      firstDisplay: getComputedStyle(document.querySelector("#first")).display,
+      genericTailDisplay: getComputedStyle(document.querySelector("#generic-tail")).display,
+      genericTailHidden: document.querySelector("#generic-tail").dataset.blockinstaAfterCutoff,
+      cutoffHostMarked: document.querySelector("#feed-list").dataset.blockinstaCutoffHost,
       spinnerHidden: document.querySelector("#spinner").dataset.blockinstaAfterCutoff
     };
     guard.destroy();
     markerCase.controlRestored = !document.querySelector("#view-older").hasAttribute("aria-disabled")
       && !document.querySelector("#view-older").hasAttribute("tabindex");
 
-    document.body.innerHTML = \`<main>\${Array.from(
+    document.body.innerHTML = \`<main id="limit-feed">\${Array.from(
       { length: 26 },
       (_, index) => article(\`post-\${index + 1}\`),
-    ).join("")}</main>\`;
+    ).join("")}<div id="recommendation-grid"><img alt="recommended"></div></main>\`;
     guard = globalThis.BlockInstaFeedGuard.createFeedGuard({
       window: makeWindow(),
-      document
+      document,
+      viewedDwellMs: 0
     });
     guard.updateSettings(settings);
+    await settle();
+    const appendedTail = document.createElement("section");
+    appendedTail.id = "appended-tail";
+    appendedTail.innerHTML = "<img alt='new recommendation'>";
+    document.querySelector("#limit-feed").append(appendedTail);
+    const appendedTailImmediateDisplay = getComputedStyle(appendedTail).display;
+    document.querySelector("#post-25 a").href = "https://www.instagram.com/p/recycled-post/";
     await settle();
     const limitCase = {
       state: guard.getState(),
       endCards: document.querySelectorAll("[data-blockinsta-feed-end]").length,
+      appendedTailImmediateDisplay,
+      appendedTailHidden: appendedTail.dataset.blockinstaAfterCutoff,
+      recommendationGridDisplay: getComputedStyle(
+        document.querySelector("#recommendation-grid"),
+      ).display,
+      recycledPostHidden: document.querySelector("#post-25").dataset.blockinstaAfterCutoff,
       twentyFifthHidden: document.querySelector("#post-25").dataset.blockinstaAfterCutoff || null,
       twentySixthHidden: document.querySelector("#post-26").dataset.blockinstaAfterCutoff
     };
     guard.destroy();
-    return { markerCase, limitCase };
+    limitCase.tailRestored = getComputedStyle(appendedTail).display !== "none"
+      && !document.querySelector("#limit-feed").hasAttribute("data-blockinsta-cutoff-host");
+
+    document.body.innerHTML = \`<main id="virtual-feed">\${Array.from(
+      { length: 4 },
+      (_, index) => article(\`virtual-\${index + 1}\`),
+    ).join("")}</main>\`;
+    const virtualVisibility = manualVisibility();
+    guard = globalThis.BlockInstaFeedGuard.createFeedGuard({
+      window: makeWindow(),
+      document,
+      createViewObserver: virtualVisibility.create,
+      viewedDwellMs: 0
+    });
+    guard.updateSettings(settings);
+    await settle();
+    const prefetchedCount = guard.getState().acceptedCount;
+    for (let index = 1; index <= 25; index += 1) {
+      const current = document.querySelector(\`#virtual-\${index}\`);
+      virtualVisibility.show(current);
+      if (index <= 21) {
+        current.remove();
+        document.querySelector("#virtual-feed").insertAdjacentHTML(
+          "beforeend",
+          article(\`virtual-\${index + 4}\`),
+        );
+      }
+      await settle();
+    }
+    const liveArticlesAtCutoff = document.querySelectorAll("#virtual-feed article").length;
+    document.querySelector("#virtual-22").remove();
+    document.querySelector("#virtual-23").remove();
+    document.querySelector("#virtual-feed").insertAdjacentHTML(
+      "beforeend",
+      article("virtual-1") + article("virtual-2") + article("virtual-26"),
+    );
+    const twentySixthImmediateDisplay = getComputedStyle(
+      document.querySelector("#virtual-26"),
+    ).display;
+    await settle();
+    const restoredSecond = document.querySelector("#virtual-2");
+    const virtualEndCard = document.querySelector("[data-blockinsta-feed-end]");
+    const twentySixth = document.querySelector("#virtual-26");
+    const virtualizationCase = {
+      prefetchedCount,
+      state: guard.getState(),
+      liveArticlesAtCutoff,
+      firstRestoredDisplay: getComputedStyle(document.querySelector("#virtual-1")).display,
+      secondRestoredDisplay: getComputedStyle(restoredSecond).display,
+      endAfterRestored: Boolean(restoredSecond.compareDocumentPosition(virtualEndCard)
+        & Node.DOCUMENT_POSITION_FOLLOWING),
+      twentySixthAfterEnd: Boolean(virtualEndCard.compareDocumentPosition(twentySixth)
+        & Node.DOCUMENT_POSITION_FOLLOWING),
+      twentySixthImmediateDisplay,
+      twentySixthHidden: twentySixth.dataset.blockinstaAfterCutoff,
+      endCards: document.querySelectorAll("[data-blockinsta-feed-end]").length
+    };
+    guard.destroy();
+
+    document.body.innerHTML = \`<main id="fallback-feed">\${fallbackArticle("07")}</main>\`;
+    const fallbackVisibility = manualVisibility();
+    guard = globalThis.BlockInstaFeedGuard.createFeedGuard({
+      window: makeWindow(),
+      document,
+      createViewObserver: fallbackVisibility.create,
+      viewedDwellMs: 0
+    });
+    guard.updateSettings(settings);
+    await settle();
+    fallbackVisibility.show(document.getElementById("07"));
+    document.getElementById("07").remove();
+    document.querySelector("#fallback-feed").insertAdjacentHTML(
+      "beforeend",
+      fallbackArticle("07"),
+    );
+    await settle();
+    fallbackVisibility.show(document.getElementById("07"));
+    const fallbackCase = guard.getState();
+    guard.destroy();
+    return { markerCase, limitCase, virtualizationCase, fallbackCase };
   })()`;
   const result = await evaluate(target.webSocketDebuggerUrl, expression);
   const marker = result.markerCase;
   const limit = result.limitCase;
+  const virtualization = result.virtualizationCase;
+  const fallback = result.fallbackCase;
   const validMarker = marker.state.state === "cutoff_reached"
     && marker.state.cutoffReason === "caught_up"
     && marker.endCards === 1
@@ -317,15 +443,36 @@ async function runFeedDomSmoke(browserWebSocketUrl, port) {
     && marker.suggestedHidden === "suggested"
     && marker.laterHidden === "true"
     && marker.firstHidden === null
+    && marker.firstDisplay !== "none"
+    && marker.genericTailDisplay === "none"
+    && marker.genericTailHidden === "true"
+    && marker.cutoffHostMarked === "true"
     && marker.spinnerHidden === "true"
     && marker.controlRestored === true;
   const validLimit = limit.state.state === "cutoff_reached"
     && limit.state.cutoffReason === "local_limit"
     && limit.state.acceptedCount === 25
     && limit.endCards === 1
-    && limit.twentyFifthHidden === null
-    && limit.twentySixthHidden === "true";
-  if (!validMarker || !validLimit) {
+    && limit.appendedTailHidden === "true"
+    && limit.recommendationGridDisplay === "none"
+    && limit.recycledPostHidden === "true"
+    && limit.twentyFifthHidden === "true"
+    && limit.twentySixthHidden === "true"
+    && limit.tailRestored === true;
+  const validVirtualization = virtualization.prefetchedCount === 0
+    && virtualization.state.state === "cutoff_reached"
+    && virtualization.state.cutoffReason === "local_limit"
+    && virtualization.state.acceptedCount === 25
+    && virtualization.liveArticlesAtCutoff === 4
+    && virtualization.firstRestoredDisplay !== "none"
+    && virtualization.secondRestoredDisplay !== "none"
+    && virtualization.endAfterRestored === true
+    && virtualization.twentySixthAfterEnd === true
+    && virtualization.twentySixthHidden === "true"
+    && virtualization.endCards === 1;
+  const validFallback = fallback.state === "seeking_boundary"
+    && fallback.acceptedCount === 1;
+  if (!validMarker || !validLimit || !validVirtualization || !validFallback) {
     throw new Error(`Chrome feed DOM mismatch: ${JSON.stringify(result)}`);
   }
 }
@@ -556,15 +703,22 @@ async function main() {
   const profileDirectory = fs.mkdtempSync(
     path.join(os.tmpdir(), "blockinsta-chrome-smoke-"),
   );
+  const smokeExtensionDirectory = path.join(profileDirectory, "extension");
+  fs.cpSync(extensionDirectory, smokeExtensionDirectory, {
+    recursive: true,
+    filter(source) {
+      return path.basename(source) !== "_metadata";
+    },
+  });
   const activePortPath = path.join(profileDirectory, "DevToolsActivePort");
   const child = spawn(executable, [
     "--headless=new",
     "--disable-background-mode",
     "--disable-component-extensions-with-background-pages",
     "--disable-default-apps",
-    "--disable-extensions-except=" + extensionDirectory,
+    "--disable-extensions-except=" + smokeExtensionDirectory,
     "--disable-gpu",
-    "--load-extension=" + extensionDirectory,
+    "--load-extension=" + smokeExtensionDirectory,
     "--no-default-browser-check",
     "--no-first-run",
     "--remote-debugging-port=0",

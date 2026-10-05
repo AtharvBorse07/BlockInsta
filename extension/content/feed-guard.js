@@ -8,6 +8,8 @@
   const ROUTE_ATTEMPT_KEY = "blockinstaFollowingRouteAttempt";
   const ROUTE_ATTEMPT_WINDOW_MS = 15_000;
   const STARTUP_TIMEOUT_MS = 12_000;
+  const VIEWED_RATIO = 0.5;
+  const VIEWED_DWELL_MS = 500;
   const DEBUG = false;
 
   function createFeedGuard(options = {}) {
@@ -22,6 +24,23 @@
       || win.requestAnimationFrame.bind(win);
     const createObserver = options.createObserver
       || ((callback) => new MutationObserver(callback));
+    const IntersectionObserverType = options.IntersectionObserver
+      || win.IntersectionObserver
+      || doc.defaultView?.IntersectionObserver
+      || globalThis.IntersectionObserver;
+    const createViewObserver = options.createViewObserver
+      || (IntersectionObserverType
+        ? ((callback, observerOptions) => new IntersectionObserverType(
+          callback,
+          observerOptions,
+        ))
+        : null);
+    const viewedDwellMs = Math.max(
+      0,
+      Number.isFinite(options.viewedDwellMs)
+        ? options.viewedDwellMs
+        : VIEWED_DWELL_MS,
+    );
 
     let settings = {
       enabled: false,
@@ -42,12 +61,15 @@
     let cutoffReason = null;
     let cutoffAnchor = null;
     let cutoffPlacement = null;
+    let cutoffHost = null;
     let endCard = null;
     let unavailableCard = null;
     let pendingRoots = new Set();
     let acceptedIds = new Set();
-    let acceptedAnonymous = new WeakSet();
     let articleRecords = new WeakMap();
+    let viewObserver = null;
+    let viewStates = new WeakMap();
+    let observedArticles = new Set();
 
     function debug(code) {
       if (DEBUG) {
@@ -119,10 +141,15 @@
         feedObserver.disconnect();
         feedObserver = null;
       }
+      clearViewTracking();
       if (feedColumn) {
         delete feedColumn.dataset.blockinstaFeedColumn;
         feedColumn = null;
       }
+      doc.querySelectorAll("[data-blockinsta-cutoff-host]").forEach((element) => {
+        delete element.dataset.blockinstaCutoffHost;
+      });
+      cutoffHost = null;
       feedContainer = null;
       doc.querySelectorAll(
         "[data-blockinsta-feed-hidden], [data-blockinsta-after-cutoff], [data-blockinsta-feed-classified], [data-blockinsta-feed-accepted], [data-blockinsta-post-id]",
@@ -163,6 +190,141 @@
       }
     }
 
+    function cancelViewDwell(article, unobserve = false) {
+      const viewState = viewStates.get(article);
+      if (viewState?.timer !== null && viewState?.timer !== undefined) {
+        win.clearTimeout(viewState.timer);
+      }
+      if (viewState) {
+        viewState.timer = null;
+        viewState.visible = false;
+      }
+      if (unobserve && observedArticles.has(article)) {
+        viewObserver?.unobserve(article);
+        observedArticles.delete(article);
+        viewStates.delete(article);
+      }
+    }
+
+    function clearViewTracking() {
+      for (const article of observedArticles) {
+        cancelViewDwell(article);
+      }
+      viewObserver?.disconnect();
+      viewObserver = null;
+      observedArticles.clear();
+    }
+
+    function scheduleViewedArticle(article) {
+      if (state !== policy.STATES.SEEKING_BOUNDARY
+        || !isFeedArticle(article)
+        || article.dataset.blockinstaFeedHidden
+        || article.dataset.blockinstaAfterCutoff) {
+        return;
+      }
+      let viewState = viewStates.get(article);
+      if (!viewState) {
+        viewState = { timer: null, visible: true };
+        viewStates.set(article, viewState);
+      }
+      viewState.visible = true;
+      if (viewState.timer !== null) {
+        return;
+      }
+      const finish = () => {
+        viewState.timer = null;
+        if (!viewState.visible
+          || state !== policy.STATES.SEEKING_BOUNDARY
+          || !article.isConnected
+          || !isFeedArticle(article)) {
+          return;
+        }
+        recordViewedArticle(article);
+      };
+      if (viewedDwellMs === 0) {
+        finish();
+      } else {
+        viewState.timer = win.setTimeout(finish, viewedDwellMs);
+      }
+    }
+
+    function handleViewEntries(entries) {
+      for (const entry of entries) {
+        const article = entry.target;
+        if (!observedArticles.has(article)) {
+          continue;
+        }
+        const box = entry.boundingClientRect;
+        const visibleBox = entry.intersectionRect;
+        const rootBox = entry.rootBounds;
+        const normalizedRatio = box && visibleBox && rootBox
+          ? (visibleBox.width * visibleBox.height) / (
+            Math.min(box.width, rootBox.width) * Math.min(box.height, rootBox.height)
+          )
+          : entry.intersectionRatio;
+        if (entry.isIntersecting && normalizedRatio >= VIEWED_RATIO) {
+          scheduleViewedArticle(article);
+        } else {
+          cancelViewDwell(article);
+        }
+      }
+    }
+
+    function ensureViewObserver() {
+      if (!viewObserver && createViewObserver) {
+        viewObserver = createViewObserver(handleViewEntries, {
+          threshold: Array.from({ length: 11 }, (_, index) => index / 10),
+        });
+      }
+      return viewObserver;
+    }
+
+    function isMeaningfullyVisible(article) {
+      const box = article.getBoundingClientRect();
+      if (box.width <= 0 || box.height <= 0) {
+        return false;
+      }
+      const viewportWidth = win.innerWidth
+        || doc.defaultView?.innerWidth
+        || doc.documentElement.clientWidth;
+      const viewportHeight = win.innerHeight
+        || doc.defaultView?.innerHeight
+        || doc.documentElement.clientHeight;
+      const visibleWidth = Math.max(
+        0,
+        Math.min(box.right, viewportWidth) - Math.max(box.left, 0),
+      );
+      const visibleHeight = Math.max(
+        0,
+        Math.min(box.bottom, viewportHeight) - Math.max(box.top, 0),
+      );
+      const relevantWidth = Math.min(box.width, viewportWidth);
+      const relevantHeight = Math.min(box.height, viewportHeight);
+      return (visibleWidth * visibleHeight) / (relevantWidth * relevantHeight)
+        >= VIEWED_RATIO;
+    }
+
+    function observeArticle(article) {
+      if (state !== policy.STATES.SEEKING_BOUNDARY
+        || observedArticles.has(article)) {
+        return;
+      }
+      observedArticles.add(article);
+      viewStates.set(article, { timer: null, visible: false });
+      const observer = ensureViewObserver();
+      if (observer) {
+        observer.observe(article);
+      } else if (isMeaningfullyVisible(article)) {
+        scheduleViewedArticle(article);
+      }
+    }
+
+    function stopObservingTree(scope) {
+      for (const article of collectArticles(scope)) {
+        cancelViewDwell(article, true);
+      }
+    }
+
     function resetSession() {
       clearStartupTimer();
       clearOwnedMarkup();
@@ -172,8 +334,9 @@
       cutoffPlacement = null;
       pendingRoots = new Set();
       acceptedIds = new Set();
-      acceptedAnonymous = new WeakSet();
       articleRecords = new WeakMap();
+      viewStates = new WeakMap();
+      observedArticles = new Set();
       state = policy.STATES.SEEKING_BOUNDARY;
       html.dataset.blockinstaLimitHome = "true";
       html.dataset.blockinstaFeedState = state;
@@ -192,6 +355,8 @@
       cutoffAnchor = null;
       cutoffPlacement = null;
       pendingRoots.clear();
+      acceptedIds.clear();
+      articleRecords = new WeakMap();
       debug("inactive");
     }
 
@@ -215,8 +380,21 @@
       feedObserver = createObserver((mutations) => {
         if (state === policy.STATES.CUTOFF_REACHED) {
           updateFeedColumnMarker();
+          restoreEndCard();
+          markCutoffTail();
         }
         for (const mutation of mutations) {
+          if (mutation.type === "attributes") {
+            const element = mutation.target instanceof Element
+              ? mutation.target
+              : null;
+            if (element) {
+              if (state === policy.STATES.CUTOFF_REACHED) {
+                markAddedAfterCutoff(element);
+              }
+              pendingRoots.add(element);
+            }
+          }
           for (const node of mutation.addedNodes) {
             const element = node instanceof Element
               ? node
@@ -228,10 +406,21 @@
               pendingRoots.add(element);
             }
           }
+          for (const node of mutation.removedNodes) {
+            const element = node instanceof Element ? node : node.parentElement;
+            if (element) {
+              stopObservingTree(element);
+            }
+          }
         }
         scheduleScan();
       });
-      feedObserver.observe(feedContainer, { childList: true, subtree: true });
+      feedObserver.observe(feedContainer, {
+        attributeFilter: ["aria-busy", "datetime", "href"],
+        attributes: true,
+        childList: true,
+        subtree: true,
+      });
       fullScanNeeded = true;
     }
 
@@ -398,23 +587,57 @@
     }
 
     function markHidden(element, reason) {
+      if (element.matches?.("article")) {
+        cancelViewDwell(element);
+      }
       element.dataset.blockinstaFeedHidden = reason;
       element.dataset.blockinstaFeedClassified = "true";
       delete element.dataset.blockinstaFeedAccepted;
       element.setAttribute("aria-hidden", "true");
     }
 
-    function markAccepted(element) {
+    function markAllowed(element) {
       delete element.dataset.blockinstaFeedHidden;
       delete element.dataset.blockinstaAfterCutoff;
       element.dataset.blockinstaFeedClassified = "true";
-      element.dataset.blockinstaFeedAccepted = "true";
+      delete element.dataset.blockinstaFeedAccepted;
       element.removeAttribute("aria-hidden");
+    }
+
+    function markAccepted(element) {
+      markAllowed(element);
+      element.dataset.blockinstaFeedAccepted = "true";
+      const stop = feedColumn || feedContainer;
+      for (let parent = element.parentElement;
+        parent && parent !== stop && parent !== feedContainer;
+        parent = parent.parentElement) {
+        if (parent.dataset.blockinstaAfterCutoff) {
+          delete parent.dataset.blockinstaAfterCutoff;
+          parent.removeAttribute("aria-hidden");
+        }
+      }
+      if (state === policy.STATES.CUTOFF_REACHED
+        && cutoffReason === policy.CUTOFF_REASONS.LOCAL_LIMIT
+        && endCard?.isConnected) {
+        const host = endCard.parentElement;
+        let branch = element;
+        while (branch.parentElement && branch.parentElement !== host) {
+          branch = branch.parentElement;
+        }
+        if (branch.parentElement === host && nodeIsAfter(endCard, branch)) {
+          host.insertBefore(endCard, branch.nextSibling);
+          cutoffAnchor = branch;
+          cutoffPlacement = "after";
+        }
+      }
     }
 
     function markAfterCutoff(element) {
       if (!element || element === endCard || element.contains(endCard)) {
         return;
+      }
+      if (element.matches?.("article")) {
+        cancelViewDwell(element);
       }
       element.dataset.blockinstaAfterCutoff = "true";
       element.dataset.blockinstaFeedClassified = "true";
@@ -422,24 +645,96 @@
       element.setAttribute("aria-hidden", "true");
     }
 
+    function cutoffTailBranch(element) {
+      const cutoffScope = feedColumn && feedColumn.contains(endCard)
+        ? feedColumn
+        : cutoffHost;
+      if (!element
+        || !cutoffScope
+        || !endCard
+        || !endCard.isConnected
+        || !cutoffScope.contains(element)
+        || !nodeIsAfter(endCard, element)) {
+        return null;
+      }
+      let branch = element;
+      while (branch.parentElement
+        && branch.parentElement !== cutoffScope
+        && !branch.parentElement.contains(endCard)) {
+        branch = branch.parentElement;
+      }
+      return branch.parentElement
+        && branch.parentElement.contains(endCard)
+        && !branch.contains(endCard)
+        ? branch
+        : null;
+    }
+
+    function markCutoffTail() {
+      if (!endCard || !endCard.isConnected) {
+        return;
+      }
+      const nextHost = endCard.parentElement;
+      if (cutoffHost && cutoffHost !== nextHost) {
+        delete cutoffHost.dataset.blockinstaCutoffHost;
+      }
+      cutoffHost = nextHost;
+      cutoffHost.dataset.blockinstaCutoffHost = "true";
+      const cutoffScope = feedColumn && feedColumn.contains(endCard)
+        ? feedColumn
+        : cutoffHost;
+      for (let path = endCard; path && path !== cutoffScope; path = path.parentElement) {
+        for (let sibling = path.nextElementSibling; sibling;) {
+          const nextSibling = sibling.nextElementSibling;
+          const articles = collectArticles(sibling).filter(isFeedArticle);
+          const hasAcceptedArticle = articles.some((article) => {
+            const identity = articleStableKey(article, articleRecords.get(article));
+            return Boolean(identity && acceptedIds.has(identity));
+          });
+          if (hasAcceptedArticle) {
+            for (const article of articles) {
+              const identity = articleStableKey(article, articleRecords.get(article));
+              if (identity && acceptedIds.has(identity)) {
+                markAccepted(article);
+              } else {
+                markAfterCutoff(article);
+              }
+            }
+          } else {
+            markAfterCutoff(sibling);
+          }
+          sibling = nextSibling;
+        }
+      }
+    }
+
     function markAddedAfterCutoff(element) {
+      const tailBranch = cutoffTailBranch(element);
       const articles = collectArticles(element);
+      let containsAcceptedArticle = false;
       for (const article of articles) {
         if (!isFeedArticle(article)) {
           continue;
         }
-        const identity = articleIdentity(article);
+        const identity = articleStableKey(article, articleRecords.get(article));
         if (identity && acceptedIds.has(identity)) {
+          containsAcceptedArticle = true;
           markAccepted(article);
         } else {
           markAfterCutoff(article);
         }
       }
-      if (element.matches?.("[role='progressbar']")) {
+      if (tailBranch && !containsAcceptedArticle) {
+        markAfterCutoff(tailBranch);
+      }
+      if (element.matches?.("[role='progressbar']")
+        && nodeIsAfter(endCard, element)) {
         markAfterCutoff(element);
       }
       for (const progress of element.querySelectorAll?.("[role='progressbar']") || []) {
-        markAfterCutoff(progress);
+        if (nodeIsAfter(endCard, progress)) {
+          markAfterCutoff(progress);
+        }
       }
     }
 
@@ -501,11 +796,28 @@
       const reference = endCard || boundary;
       (feedColumn || feedContainer).querySelectorAll("article, [role='progressbar']")
         .forEach((element) => {
+          if (placement === "after" && element.matches("article")) {
+            const identity = articleStableKey(element, articleRecords.get(element));
+            if (identity && acceptedIds.has(identity)) {
+              markAccepted(element);
+            } else {
+              markAfterCutoff(element);
+            }
+            return;
+          }
           const shouldHide = placement === "after"
             ? nodeIsAfter(boundary, element)
             : element === boundary || nodeIsAfter(reference, element);
           if (shouldHide) {
             markAfterCutoff(element);
+          } else if (placement === "before"
+            && element.matches("article")
+            && !element.dataset.blockinstaFeedHidden) {
+            const identity = articleStableKey(element, articleRecords.get(element));
+            if (identity) {
+              acceptedIds.add(identity);
+            }
+            markAccepted(element);
           }
         });
     }
@@ -514,13 +826,13 @@
       if (state === policy.STATES.CUTOFF_REACHED || !anchor || !anchor.isConnected) {
         return;
       }
+      const block = placement === "before" ? boundaryBlock(anchor) : anchor;
       state = policy.nextState(state, "cutoff");
       cutoffReason = reason;
-      cutoffAnchor = anchor;
+      cutoffAnchor = block;
       cutoffPlacement = placement;
       html.dataset.blockinstaFeedState = state;
 
-      const block = placement === "before" ? boundaryBlock(anchor) : anchor;
       endCard = createEndCard(reason);
       if (placement === "before") {
         block.parentElement.insertBefore(endCard, block);
@@ -530,6 +842,8 @@
         block.parentElement.insertBefore(endCard, block.nextSibling);
       }
       applyCutoffToExistingNodes(block, placement);
+      markCutoffTail();
+      clearViewTracking();
       clearStartupTimer();
       debug(`cutoff:${reason}`);
     }
@@ -540,9 +854,8 @@
       }
       let last = null;
       for (const article of collectArticles(feedContainer)) {
-        const identity = articleIdentity(article);
-        if ((identity && acceptedIds.has(identity))
-          || acceptedAnonymous.has(article)) {
+        const identity = articleStableKey(article, articleRecords.get(article));
+        if (identity && acceptedIds.has(identity)) {
           last = article;
         }
       }
@@ -562,6 +875,7 @@
         } else {
           cutoffAnchor.parentElement.insertBefore(endCard, cutoffAnchor.nextSibling);
         }
+        markCutoffTail();
         return;
       }
       const lastAccepted = findLastAcceptedArticle();
@@ -570,6 +884,7 @@
       } else {
         feedContainer.append(endCard);
       }
+      markCutoffTail();
     }
 
     function collectArticleTexts(article) {
@@ -593,6 +908,72 @@
       return null;
     }
 
+    function normalizedResourceIdentity(value) {
+      if (!value || String(value).startsWith("blob:")) {
+        return "";
+      }
+      try {
+        const url = new URL(value, win.location.href);
+        return `${url.hostname}${url.pathname}`;
+      } catch {
+        return "";
+      }
+    }
+
+    function articleAuthor(article) {
+      const header = article.querySelector("header") || article.firstElementChild;
+      for (const anchor of header?.querySelectorAll?.("a[href]") || []) {
+        try {
+          const path = new URL(anchor.href, win.location.href).pathname;
+          const match = path.match(/^\/([^/]+)\/?$/);
+          if (match && !["p", "reel", "reels", "explore", "direct"].includes(
+            match[1].toLowerCase(),
+          )) {
+            return match[1].toLowerCase();
+          }
+        } catch {
+          // Other stable post signals may still be available.
+        }
+      }
+      return "";
+    }
+
+    function articleFallbackIdentity(article) {
+      const author = articleAuthor(article);
+      const timestamp = article.querySelector("time")?.getAttribute("datetime") || "";
+      const media = article.querySelector("video[poster], video[src], img[src]");
+      const mediaIdentity = normalizedResourceIdentity(
+        media?.getAttribute("poster")
+          || media?.currentSrc
+          || media?.getAttribute("src"),
+      );
+      if (author && timestamp) {
+        return `fallback:${author}|${timestamp}`;
+      }
+      if (author && mediaIdentity) {
+        return `fallback:${author}|${mediaIdentity}`;
+      }
+      if (timestamp && mediaIdentity) {
+        return `fallback:${timestamp}|${mediaIdentity}`;
+      }
+      return null;
+    }
+
+    function articleStableKey(article, previous) {
+      const canonical = articleIdentity(article);
+      const fallback = articleFallbackIdentity(article);
+      if (canonical) {
+        if (previous?.identity?.startsWith("fallback:")
+          && fallback === previous.identity
+          && previous.identity !== canonical
+          && acceptedIds.delete(previous.identity)) {
+          acceptedIds.add(canonical);
+        }
+        return canonical;
+      }
+      return fallback;
+    }
+
     function articleFingerprint(article, identity, signals) {
       const timestamp = article.querySelector("time")?.getAttribute("datetime") || "";
       return [
@@ -603,33 +984,43 @@
       ].join("|");
     }
 
-    function removeAcceptedRecord(article, record) {
-      if (!record || !record.accepted) {
-        return;
+    function acceptArticle(identity) {
+      if (!identity || acceptedIds.has(identity)) {
+        return false;
       }
-      if (record.identity) {
-        if (acceptedIds.delete(record.identity)) {
-          acceptedCount = Math.max(0, acceptedCount - 1);
-        }
-      } else if (acceptedAnonymous.delete(article)) {
-        acceptedCount = Math.max(0, acceptedCount - 1);
-      }
-    }
-
-    function acceptArticle(article, identity) {
-      if (identity) {
-        if (acceptedIds.has(identity)) {
-          return false;
-        }
-        acceptedIds.add(identity);
-      } else {
-        if (acceptedAnonymous.has(article)) {
-          return false;
-        }
-        acceptedAnonymous.add(article);
-      }
+      acceptedIds.add(identity);
       acceptedCount += 1;
       return true;
+    }
+
+    function recordViewedArticle(article) {
+      if (state !== policy.STATES.SEEKING_BOUNDARY || !isFeedArticle(article)) {
+        return;
+      }
+      const signals = policy.classifyTexts(collectArticleTexts(article), language());
+      if (signals.sponsored || signals.recommendation) {
+        classifyArticle(article);
+        return;
+      }
+      const previous = articleRecords.get(article);
+      const identity = articleStableKey(article, previous);
+      if (!identity) {
+        return;
+      }
+      const newlyAccepted = acceptArticle(identity);
+      markAccepted(article);
+      articleRecords.set(article, {
+        accepted: true,
+        fingerprint: articleFingerprint(article, identity, signals),
+        identity,
+      });
+      if (newlyAccepted && acceptedCount >= policy.FALLBACK_POST_LIMIT) {
+        establishCutoff(
+          policy.CUTOFF_REASONS.LOCAL_LIMIT,
+          article,
+          "after",
+        );
+      }
     }
 
     function classifyArticle(article) {
@@ -637,22 +1028,24 @@
         return;
       }
       const cutoffAlreadyReached = state === policy.STATES.CUTOFF_REACHED;
-      const identity = articleIdentity(article);
+      const previous = articleRecords.get(article);
+      const identity = articleStableKey(article, previous);
       const signals = policy.classifyTexts(collectArticleTexts(article), language());
       const fingerprint = articleFingerprint(article, identity, signals);
-      const previous = articleRecords.get(article);
       if (previous
         && previous.fingerprint === fingerprint
         && article.dataset.blockinstaFeedClassified === "true") {
+        const accepted = Boolean(identity && acceptedIds.has(identity));
+        if (cutoffAlreadyReached) {
+          if (accepted) {
+            markAccepted(article);
+          }
+        } else if (!accepted && !article.dataset.blockinstaFeedHidden) {
+          observeArticle(article);
+        }
         return;
       }
-      const acceptedBeforeChange = Boolean(
-        (identity && acceptedIds.has(identity))
-        || acceptedAnonymous.has(article),
-      );
-      if (!cutoffAlreadyReached) {
-        removeAcceptedRecord(article, previous);
-      }
+      const acceptedBeforeChange = Boolean(identity && acceptedIds.has(identity));
       clearClassification(article);
       if (identity) {
         article.dataset.blockinstaPostId = identity;
@@ -667,12 +1060,6 @@
       });
 
       if (decision.action === "hide") {
-        if (cutoffAlreadyReached && acceptedBeforeChange) {
-          removeAcceptedRecord(article, {
-            accepted: true,
-            identity,
-          });
-        }
         markHidden(article, decision.reason);
         articleRecords.set(article, {
           accepted: false,
@@ -683,42 +1070,44 @@
       }
 
       if (cutoffAlreadyReached) {
-        const wasAccepted = acceptedBeforeChange;
-        if (wasAccepted) {
+        if (acceptedBeforeChange) {
           markAccepted(article);
         } else {
           markAfterCutoff(article);
         }
         articleRecords.set(article, {
-          accepted: Boolean(wasAccepted),
+          accepted: acceptedBeforeChange,
           fingerprint,
           identity,
         });
         return;
       }
 
-      const newlyAccepted = acceptArticle(article, identity);
-      if (newlyAccepted || acceptedBeforeChange) {
+      if (acceptedBeforeChange) {
         markAccepted(article);
+      } else {
+        markAllowed(article);
+        observeArticle(article);
+        if (viewStates.get(article)?.visible) {
+          scheduleViewedArticle(article);
+        }
       }
       articleRecords.set(article, {
-        accepted: newlyAccepted || acceptedBeforeChange,
+        accepted: acceptedBeforeChange,
         fingerprint,
         identity,
       });
-      if (newlyAccepted && acceptedCount >= policy.FALLBACK_POST_LIMIT) {
-        establishCutoff(
-          policy.CUTOFF_REASONS.LOCAL_LIMIT,
-          article,
-          "after",
-        );
-      }
     }
 
     function collectArticles(scope) {
       const articles = [];
-      if (scope instanceof Element && scope.matches("article")) {
-        articles.push(scope);
+      if (scope instanceof Element) {
+        const containingArticle = scope.matches("article")
+          ? scope
+          : scope.closest("article");
+        if (containingArticle) {
+          articles.push(containingArticle);
+        }
       }
       if (scope && typeof scope.querySelectorAll === "function") {
         articles.push(...scope.querySelectorAll("article"));
@@ -915,8 +1304,21 @@
       }
       if (state === policy.STATES.CUTOFF_REACHED) {
         updateFeedColumnMarker();
+        restoreEndCard();
+        markCutoffTail();
       }
       for (const mutation of mutations || []) {
+        if (mutation.type === "attributes") {
+          const element = mutation.target instanceof Element
+            ? mutation.target
+            : null;
+          if (element && feedContainer.contains(element)) {
+            if (state === policy.STATES.CUTOFF_REACHED) {
+              markAddedAfterCutoff(element);
+            }
+            pendingRoots.add(element);
+          }
+        }
         for (const node of mutation.addedNodes || []) {
           const element = node instanceof Element ? node : node.parentElement;
           if (element && feedContainer.contains(element)) {
@@ -924,6 +1326,12 @@
               markAddedAfterCutoff(element);
             }
             pendingRoots.add(element);
+          }
+        }
+        for (const node of mutation.removedNodes || []) {
+          const element = node instanceof Element ? node : node.parentElement;
+          if (element) {
+            stopObservingTree(element);
           }
         }
       }

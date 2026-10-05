@@ -141,7 +141,7 @@ Run these tests while signed in to the account normally used on the device.
 - Confirm explicit Suggested, Recommended, Sponsored, and account-suggestion
   units are hidden.
 - Confirm the local end card appears at Instagram's caught-up or recommendation
-  boundary, or after 25 accepted posts when no boundary is detectable.
+  boundary, or after 25 meaningfully viewed posts when no boundary is detectable.
 - Wait and swipe beyond the end card; no additional feed posts should appear.
 - Confirm Messages, profiles, ordinary `/p/` posts, and stories still open.
 

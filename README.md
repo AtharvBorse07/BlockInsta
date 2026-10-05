@@ -10,7 +10,7 @@ With blocking enabled:
   recommendations/advertisements, and ends at its caught-up or recommendations
   boundary. A manually opened Following feed receives the same finite guard.
 - Suggested, recommended, and Sponsored feed cards are hidden. If Instagram
-  provides no clear boundary, BlockInsta stops after 25 accepted posts.
+  provides no clear boundary, BlockInsta stops after 25 meaningfully viewed posts.
 - The compact Search/Explore landing keeps its native search field but shows no
   recommendation grid. Recent searches, autocomplete, typed results, system
   notices, and selected result pages remain available.
@@ -140,7 +140,7 @@ debugging, limitations, and removal instructions.
 5. Reload the extension after each source change.
 6. Open Instagram Home and confirm followed-account posts remain, explicit
    suggestions/Sponsored cards are hidden, and the feed ends at the caught-up
-   boundary or after 25 accepted posts.
+   boundary or after 25 meaningfully viewed posts.
 7. Visit `https://www.instagram.com/reels/` and confirm the local exit page
    appears.
 8. Open one singular `/reel/{shortcode}/` link and confirm it plays.
