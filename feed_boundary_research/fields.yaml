@@ -1,0 +1,94 @@
+categories:
+  behavior_evidence:
+    description: "What Instagram displays and how strongly the evidence supports it."
+    detail_level: detailed
+    fields:
+      - name: current_behavior
+        description: "Observed feed behavior, including ordering and inserted content."
+      - name: feed_mode
+        description: "Home, Following, Favorites, responsive/mobile web, or unknown cohort."
+      - name: live_cohort_evidence
+        description: "Observation date, browser, viewport, locale, account cohort, and experiment variant."
+      - name: source_quality
+        description: "First-party documentation, current source code, live observation, or user report."
+  boundary:
+    description: "How a finite stopping point is identified and represented."
+    detail_level: detailed
+    fields:
+      - name: boundary_semantics
+        description: "Instagram marker, first recommendation transition, or deterministic local fallback."
+      - name: boundary_authority
+        description: "Official UI marker, inferred DOM transition, local rule, or mixed evidence."
+      - name: completeness_claim
+        description: "The exact claim the end notice can safely make."
+      - name: marker_variant
+        description: "Role, accessible text, locale, iconography, and surrounding structure."
+      - name: finite_budget
+        description: "Fallback item count or other deterministic limit when no marker appears."
+      - name: loading_error_state
+        description: "How skeletons, offline states, login challenges, and true completion differ."
+  classification:
+    description: "How content is classified without scraping the following list."
+    detail_level: detailed
+    fields:
+      - name: classification_subject
+        description: "Post author, placement, recommendation module, advertisement, or section."
+      - name: detection_signal
+        description: "Semantic role, accessible label, visible label, link pattern, or structural relationship."
+      - name: confidence_score
+        description: "Confidence required to keep, hide, mark ambiguous, or establish the cutoff."
+      - name: policy_precedence
+        description: "Resolution order for sponsored, suggested, followed, allowlisted, and ambiguous signals."
+      - name: authorship_resolution
+        description: "Single author, collaboration, repost, unknown author, or conflicting signals."
+      - name: post_identity
+        description: "Canonical permalink or shortcode used to detect node reuse."
+  enforcement:
+    description: "How BlockInsta stops the feed without breaking Instagram."
+    detail_level: detailed
+    fields:
+      - name: enforcement_action
+        description: "Hide, disable, end-cap insertion, redirect, or local fallback."
+      - name: background_loading_behavior
+        description: "Whether pagination, media loading, or other network work continues after cutoff."
+      - name: node_recycling_behavior
+        description: "How stale attributes are cleared when an element represents a new post."
+      - name: user_notice_reason
+        description: "Instagram marker, first recommendation boundary, local limit, ambiguity, or load failure."
+      - name: undo_and_recovery
+        description: "Refresh, retry Following, open Messages, or disable the feature."
+  risk_and_quality:
+    description: "False decisions, regressions, and maintainability."
+    detail_level: detailed
+    fields:
+      - name: false_positive_risk
+        description: "Chance of hiding a legitimate followed-account post."
+      - name: false_negative_risk
+        description: "Chance of showing a recommendation or allowing endless loading."
+      - name: prefix_loss_risk
+        description: "Chance of hiding later followed posts after an early recommendation."
+      - name: regression_trigger
+        description: "Marker loss, route outage, selector drift, node reuse, or unexpected loading."
+      - name: verification_method
+        description: "Pure unit fixture, DOM integration test, Chromium smoke test, or live manual test."
+  privacy_and_compatibility:
+    description: "Data boundaries and supported browser behavior."
+    detail_level: detailed
+    fields:
+      - name: data_plane
+        description: "DOM-only, main-world hook, response rewriting, or following-list lookup."
+      - name: data_accessed
+        description: "DOM fields observed and whether any identifiers are retained."
+      - name: storage_policy
+        description: "Storage area, retention, account scoping, and deletion behavior."
+      - name: browser_support
+        description: "Chrome, Edge, Brave, desktop Safari, and iPhone Safari considerations."
+      - name: performance_budget
+        description: "Observer scope, batching strategy, scan frequency, and acceptable main-thread cost."
+uncertain:
+  - "Exact 2026 Instagram DOM selectors and accessible labels for every account cohort"
+  - "Whether the caught-up marker appears consistently in the desktop Following feed"
+  - "Whether ?variant=following remains available for every account and locale"
+  - "Whether hiding the pagination sentinel reliably stops all background loading"
+  - "Localized text variants outside the languages captured during live probing"
+

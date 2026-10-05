@@ -10,115 +10,94 @@
 })(globalThis, function createSettingsApi() {
   "use strict";
 
-  const SCHEMA_VERSION = 1;
-  const VALID_UNLOCK_MINUTES = Object.freeze([5, 15, 30]);
+  const SCHEMA_VERSION = 5;
+  const SETTINGS_KEYS = Object.freeze([
+    "blockReelsFeed",
+    "enabled",
+    "hideSearchDiscovery",
+    "limitHomeFeed",
+    "limitIndividualReels",
+    "preferFollowingFeed",
+    "schemaVersion",
+  ]);
   const DEFAULT_SETTINGS = Object.freeze({
     schemaVersion: SCHEMA_VERSION,
     enabled: true,
-    unlockUntil: null,
+    blockReelsFeed: true,
+    hideSearchDiscovery: true,
+    limitHomeFeed: true,
+    limitIndividualReels: true,
+    preferFollowingFeed: false,
   });
 
   function isRecord(value) {
     return Boolean(value) && typeof value === "object" && !Array.isArray(value);
   }
 
-  function normalizeSettings(candidate, now = Date.now()) {
+  function booleanOrDefault(value, fallback) {
+    return typeof value === "boolean" ? value : fallback;
+  }
+
+  function normalizeSettings(candidate) {
     if (!isRecord(candidate)) {
       return { ...DEFAULT_SETTINGS };
     }
 
-    const enabled = typeof candidate.enabled === "boolean"
-      ? candidate.enabled
-      : DEFAULT_SETTINGS.enabled;
-    const validUnlock = Number.isFinite(candidate.unlockUntil)
-      && candidate.unlockUntil > now;
-
     return {
       schemaVersion: SCHEMA_VERSION,
-      enabled,
-      unlockUntil: enabled && validUnlock
-        ? Math.trunc(candidate.unlockUntil)
-        : null,
+      enabled: booleanOrDefault(candidate.enabled, DEFAULT_SETTINGS.enabled),
+      blockReelsFeed: booleanOrDefault(
+        candidate.blockReelsFeed,
+        DEFAULT_SETTINGS.blockReelsFeed,
+      ),
+      hideSearchDiscovery: candidate.schemaVersion === SCHEMA_VERSION
+        ? booleanOrDefault(
+          candidate.hideSearchDiscovery,
+          DEFAULT_SETTINGS.hideSearchDiscovery,
+        )
+        : DEFAULT_SETTINGS.hideSearchDiscovery,
+      limitHomeFeed: booleanOrDefault(
+        candidate.limitHomeFeed,
+        DEFAULT_SETTINGS.limitHomeFeed,
+      ),
+      limitIndividualReels: booleanOrDefault(
+        candidate.limitIndividualReels,
+        DEFAULT_SETTINGS.limitIndividualReels,
+      ),
+      preferFollowingFeed: (candidate.schemaVersion === SCHEMA_VERSION
+        || candidate.schemaVersion === 4)
+        ? booleanOrDefault(
+          candidate.preferFollowingFeed,
+          DEFAULT_SETTINGS.preferFollowingFeed,
+        )
+        : DEFAULT_SETTINGS.preferFollowingFeed,
     };
   }
 
   function equal(left, right) {
-    const expectedKeys = ["enabled", "schemaVersion", "unlockUntil"];
     return isRecord(left)
-      && Object.keys(left).sort().join(",") === expectedKeys.join(",")
-      && left.schemaVersion === right.schemaVersion
-      && left.enabled === right.enabled
-      && left.unlockUntil === right.unlockUntil;
+      && Object.keys(left).sort().join(",") === SETTINGS_KEYS.join(",")
+      && SETTINGS_KEYS.every((key) => left[key] === right[key]);
   }
 
-  function getStatus(candidate, now = Date.now()) {
-    const settings = normalizeSettings(candidate, now);
-    if (!settings.enabled) {
-      return "disabled";
-    }
-    if (settings.unlockUntil !== null && settings.unlockUntil > now) {
-      return "temporarily_unlocked";
-    }
-    return "active";
+  function getStatus(candidate) {
+    return normalizeSettings(candidate).enabled ? "active" : "disabled";
   }
 
-  function getRemainingMs(candidate, now = Date.now()) {
-    const settings = normalizeSettings(candidate, now);
-    return settings.unlockUntil === null
-      ? 0
-      : Math.max(0, settings.unlockUntil - now);
-  }
-
-  function setEnabled(candidate, enabled, now = Date.now()) {
-    const settings = normalizeSettings(candidate, now);
+  function setEnabled(candidate, enabled) {
     return {
-      ...settings,
+      ...normalizeSettings(candidate),
       enabled: Boolean(enabled),
-      unlockUntil: null,
     };
-  }
-
-  function startTemporaryUnlock(candidate, minutes, now = Date.now()) {
-    if (!VALID_UNLOCK_MINUTES.includes(minutes)) {
-      throw new RangeError("Unlock duration must be 5, 15, or 30 minutes.");
-    }
-
-    const settings = normalizeSettings(candidate, now);
-    return {
-      ...settings,
-      enabled: true,
-      unlockUntil: now + minutes * 60 * 1000,
-    };
-  }
-
-  function reenableNow(candidate, now = Date.now()) {
-    const settings = normalizeSettings(candidate, now);
-    return {
-      ...settings,
-      enabled: true,
-      unlockUntil: null,
-    };
-  }
-
-  function formatRemaining(milliseconds) {
-    const totalSeconds = Math.max(0, Math.ceil(milliseconds / 1000));
-    const minutes = Math.floor(totalSeconds / 60);
-    const seconds = totalSeconds % 60;
-    return `${minutes}:${String(seconds).padStart(2, "0")}`;
   }
 
   return Object.freeze({
     SCHEMA_VERSION,
-    VALID_UNLOCK_MINUTES,
+    SETTINGS_KEYS,
     DEFAULT_SETTINGS,
     normalizeSettings,
     equal,
     getStatus,
-    getRemainingMs,
     setEnabled,
-    startTemporaryUnlock,
-    reenableNow,
-    formatRemaining,
   });
 });
-

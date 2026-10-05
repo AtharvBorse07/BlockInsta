@@ -1,0 +1,91 @@
+categories:
+  product_state:
+    description: "The user-visible Search state and the exact content contract for that state."
+    detail_level: detailed
+    fields:
+      - name: intent_class
+        description: "Idle discovery, recent history, autocomplete, submitted search, result navigation, AI search, or system message."
+      - name: expected_visibility
+        description: "What stays visible, what is removed, and whether the remaining area must collapse to a blank surface."
+      - name: recent_search_policy
+        description: "Whether recent searches are preserved after deliberate focus with an empty query."
+      - name: result_type
+        description: "Account, tag/topic, place, audio, post, Reel, AI response, safety resource, or other result."
+  topology_and_signals:
+    description: "How a Search surface and its owned subtrees are identified."
+    detail_level: detailed
+    fields:
+      - name: entry_point_and_layout
+        description: "Compact landing, full page, desktop side panel, overlay, or other observed topology."
+      - name: route_shape
+        description: "Observed URL path/query and whether the address changes during focus, search, selection, and clearing."
+      - name: query_signal_set
+        description: "Input value, composition state, ARIA relationship, result owner, route, loading, and focus signals considered together."
+      - name: discovery_signal_set
+        description: "Repeated media-link structure, grid ancestry, loader ownership, exclusions, and independent corroborating signals."
+      - name: signal_precedence
+        description: "Which signal wins while route, input, and rendered DOM temporarily disagree."
+      - name: selector_drift_risk
+        description: "Semantic strength, localization dependence, generated-class dependence, alternatives, and known layout coverage."
+  transitions_and_lifecycle:
+    description: "Asynchronous state changes and restoration behavior."
+    detail_level: detailed
+    fields:
+      - name: transition
+        description: "Idle, composing, querying, loading, results, clearing, navigation, viewer open/close, or deactivation transition."
+      - name: transition_invariant
+        description: "Condition that must remain true, especially that user-initiated results never inherit discovery hiding."
+      - name: browser_lifecycle_path
+        description: "Initial load, SPA navigation, Back/Forward, bfcache, background/resume, and setting change."
+      - name: owned_mutations_and_restore_rule
+        description: "Extension-owned markers or attributes and the exact trigger that restores or removes them."
+      - name: node_reuse_behavior
+        description: "How stale discovery classification is revoked when React reuses or moves a node."
+  accessibility_and_interaction:
+    description: "Search usability for keyboard, touch, assistive technology, and alternate input."
+    detail_level: detailed
+    fields:
+      - name: input_method_coverage
+        description: "Keyboard, touch, paste, clear button, autofill, IME composition, voice/accessibility input, and restored values."
+      - name: focus_and_announcement_contract
+        description: "Active element, aria-controls/activedescendant, popup behavior, status announcements, and Escape/Back outcome."
+      - name: accessibility_tree_effect
+        description: "Whether hiding removes only discovery content from the accessibility tree while preserving all search controls and results."
+      - name: scroll_owner
+        description: "The element permitted to scroll and whether its loader belongs to discovery or intentional results."
+  enforcement_and_quality:
+    description: "How content is hidden safely and how success is measured."
+    detail_level: detailed
+    fields:
+      - name: intervention_semantics
+        description: "Effect on paint, layout, focusability, accessibility tree, scrolling, media, and network loading."
+      - name: minimum_confidence_and_fallback
+        description: "Evidence required before hiding and fail-open behavior when discovery ownership is ambiguous."
+      - name: first_paint_metric
+        description: "Whether an idle thumbnail painted and how quickly the search control became usable."
+      - name: observer_scope_and_cost
+        description: "Observed root, mutation types, batching, DOM-query budget, and teardown behavior."
+      - name: test_oracle_and_negative_controls
+        description: "Visible assertion and unaffected counterexamples for every automated or manual case."
+      - name: rollout_and_kill_switch
+        description: "Default setting, staged acceptance gate, and safe feature-only disable path."
+  evidence_and_privacy:
+    description: "Evidence scope plus query-data handling."
+    detail_level: detailed
+    fields:
+      - name: evidence_freshness_and_scope
+        description: "Date, browser, viewport, locale, account class, route, and whether evidence is live, repository, documented, or inferred."
+      - name: account_and_rollout_context
+        description: "Login state, adult/teen/supervised status, sensitive-content settings, region, and experiment cohort if observable."
+      - name: privacy_data_lifecycle
+        description: "Whether query text is read, stored, logged, transmitted, or discarded and how fixtures are sanitized."
+      - name: feature_interactions
+        description: "Expected interaction with the master switch, Home guard, Reels guard, result viewers, and existing observers."
+uncertain:
+  - "Whether the owner's compact Search tab currently uses bare /explore/, /explore/search/, or an in-place state with no route change"
+  - "Exact 2026 DOM/ARIA structure of the discovery grid, search input, results owner, and pagination sentinel"
+  - "Whether desktop Search side panels ever render the same discovery grid as the compact landing"
+  - "Whether Meta AI, safety interstitials, and recent-search containers share an ancestor with discovery content in every cohort"
+  - "Whether display:none on the verified discovery root reliably stops all pagination instead of triggering a hidden load loop"
+  - "Safari/iPhone timing for mutation classification before first paint"
+

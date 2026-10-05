@@ -13,18 +13,18 @@
         <img src="../icons/icon-64.png" width="44" height="44" alt="">
         <div>
           <h1>BlockInsta</h1>
-          <p>Instagram website blocker</p>
+          <p>Selective Instagram guard</p>
         </div>
       </header>
 
       <section class="control-card" aria-labelledby="blocking-label">
         <div class="switch-row">
           <div>
-            <h2 id="blocking-label">Block Instagram</h2>
-            <p>Applies in this browser only</p>
+            <h2 id="blocking-label">Block endless Instagram</h2>
+            <p>Messages, followed posts, and search stay available</p>
           </div>
           <label class="switch">
-            <span class="visually-hidden">Enable Instagram blocking</span>
+            <span class="visually-hidden">Enable BlockInsta protections</span>
             <input id="enabled-toggle" type="checkbox" role="switch">
             <span class="switch-track" aria-hidden="true"></span>
           </label>
@@ -33,32 +33,27 @@
         <div id="status-panel" class="status-panel" data-state="loading">
           <span class="status-dot" aria-hidden="true"></span>
           <div>
-            <strong id="status-title">Checking status…</strong>
+            <strong id="status-title">Checking status...</strong>
             <p id="status-detail" aria-live="polite">One moment</p>
           </div>
         </div>
       </section>
 
-      <section id="unlock-section" class="unlock-card" aria-labelledby="unlock-title">
-        <h2 id="unlock-title">Take a short break</h2>
-        <p>Instagram will be available until the timer ends.</p>
-        <div class="duration-grid">
-          <button type="button" data-unlock-minutes="5">5 min</button>
-          <button type="button" data-unlock-minutes="15">15 min</button>
-          <button type="button" data-unlock-minutes="30">30 min</button>
-        </div>
-        <button id="reenable-button" class="secondary-button" type="button" hidden>
-          Re-enable now
-        </button>
+      <section class="available-card" aria-labelledby="available-title">
+        <h2 id="available-title">Still available</h2>
+        <ul>
+          <li>A finite feed of followed-account posts</li>
+          <li>Search input and results, without the discovery grid</li>
+          <li>Messages, profiles, and stories</li>
+          <li>One Reel opened from a friend or direct link</li>
+        </ul>
       </section>
 
       <p id="error-message" class="error-message" role="alert" hidden></p>
-      <p class="privacy-note">Private by design · Settings stay on this device</p>
+      <p class="privacy-note">Private by design &middot; Settings stay on this device</p>
     </main>
 
     <script src="../compatibility.js"></script>
-    <script src="../shared/settings.js"></script>
     <script src="popup.js"></script>
   </body>
 </html>
-

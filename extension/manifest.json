@@ -1,19 +1,18 @@
 {
   "manifest_version": 3,
   "name": "BlockInsta",
-  "version": "1.0.0",
-  "description": "Calmly block Instagram on the web, with optional time-limited breaks.",
+  "version": "2.2.0",
+  "description": "Block endless Instagram Reels, limit Home, and remove Search discovery while keeping messages, profiles, and search results.",
   "permissions": [
     "storage",
-    "declarativeNetRequest",
-    "alarms"
+    "declarativeNetRequestWithHostAccess"
   ],
   "host_permissions": [
     "*://instagram.com/*",
     "*://*.instagram.com/*"
   ],
   "background": {
-    "service_worker": "background.js"
+    "service_worker": "background-v2.js"
   },
   "action": {
     "default_title": "BlockInsta",
@@ -28,6 +27,29 @@
       }
     ]
   },
+  "content_scripts": [
+    {
+      "matches": [
+        "*://instagram.com/*",
+        "*://*.instagram.com/*"
+      ],
+      "js": [
+        "compatibility.js",
+        "shared/settings.js",
+        "shared/routes.js",
+        "shared/feed-policy.js",
+        "content/feed-guard.js",
+        "shared/search-policy.js",
+        "content/search-guard.js",
+        "content/instagram.js"
+      ],
+      "css": [
+        "content/instagram.css"
+      ],
+      "run_at": "document_start",
+      "all_frames": false
+    }
+  ],
   "icons": {
     "16": "icons/icon-16.png",
     "32": "icons/icon-32.png",
@@ -43,9 +65,7 @@
       "resources": [
         "blocked/blocked.html",
         "blocked/blocked.css",
-        "blocked/blocked.js",
-        "compatibility.js",
-        "shared/settings.js"
+        "blocked/blocked.js"
       ],
       "matches": [
         "*://instagram.com/*",

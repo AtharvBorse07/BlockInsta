@@ -35,6 +35,9 @@ function listFiles(directory, prefix = "") {
   return fs.readdirSync(directory, { withFileTypes: true })
     .sort((left, right) => left.name.localeCompare(right.name))
     .flatMap((entry) => {
+      if (entry.name === "_metadata" || entry.name === ".DS_Store") {
+        return [];
+      }
       const relativePath = prefix ? `${prefix}/${entry.name}` : entry.name;
       const fullPath = path.join(directory, entry.name);
       return entry.isDirectory()

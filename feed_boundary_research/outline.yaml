@@ -1,0 +1,36 @@
+topic: "Instagram followed-account-only finite home feed for BlockInsta"
+research_date: "2026-10-04"
+time_range: "2024-10-04 through 2026-10-04, with older first-party sources retained only when foundational"
+decision_context:
+  cutoff_policy: "Stop at the caught-up/recommendation boundary"
+  architectural_baseline: "Current BlockInsta project documents and v2.0.2 source, read-only"
+items:
+  - id: current_feed_behavior
+    name: "Current Instagram web feed behavior"
+    purpose: "Verify Home, Following, suggested-content, advertisement, older-post, and caught-up behavior by account cohort and viewport."
+  - id: boundary_semantics
+    name: "Caught-up boundary semantics"
+    purpose: "Determine what Instagram's marker actually guarantees and what BlockInsta may truthfully claim."
+  - id: following_route
+    name: "Following-feed route reliability"
+    purpose: "Assess the undocumented ?variant=following route, SPA transitions, outages, and safe fallback behavior."
+  - id: post_classification
+    name: "Followed, suggested, and sponsored classification"
+    purpose: "Compare high-confidence DOM signals without downloading or storing the user's following list."
+  - id: finite_enforcement
+    name: "Finite-feed enforcement"
+    purpose: "Design boundary state, DOM masking, pagination-sentinel handling, local limits, and an end-of-feed notice."
+  - id: spa_resilience
+    name: "SPA, lazy-loading, and virtualized DOM resilience"
+    purpose: "Handle mutations, navigation, recycled nodes, responsive layouts, localization, and A/B variants."
+  - id: privacy_compatibility
+    name: "Privacy, browser compatibility, and performance"
+    purpose: "Keep processing local and DOM-only while supporting Chromium and Safari/iPhone."
+  - id: verification
+    name: "Verification and maintenance"
+    purpose: "Define sanitized fixtures, live-account probes, regression triggers, and selector maintenance."
+execution:
+  batch_size: 2
+  items_per_agent: 4
+  output_dir: "./results"
+

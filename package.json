@@ -1,12 +1,13 @@
 {
   "name": "blockinsta",
-  "version": "1.0.0",
+  "version": "2.2.0",
   "private": true,
-  "description": "A privacy-friendly Safari Web Extension that blocks Instagram on the web.",
+  "description": "A privacy-friendly WebExtension that blocks infinite Instagram Reels, ends Home, and removes the idle Search discovery grid.",
   "scripts": {
     "icons": "node scripts/generate-icons.js",
     "lint": "node scripts/lint.js",
     "test": "node --test",
+    "smoke:chromium": "node scripts/smoke-chrome.js",
     "validate": "node scripts/validate-extension.js",
     "check": "npm run lint && npm test && npm run validate",
     "package": "node scripts/package-extension.js"

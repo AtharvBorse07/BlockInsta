@@ -1,0 +1,148 @@
+html[data-blockinsta-block-feed="true"] a[href="/reels"],
+html[data-blockinsta-block-feed="true"] a[href="/reels/"],
+html[data-blockinsta-block-feed="true"] a[href^="/reels/?"],
+html[data-blockinsta-block-feed="true"] a[href="https://www.instagram.com/reels"],
+html[data-blockinsta-block-feed="true"] a[href="https://www.instagram.com/reels/"],
+html[data-blockinsta-block-feed="true"] a[href^="https://www.instagram.com/reels/?"],
+html[data-blockinsta-block-feed="true"] [data-blockinsta-blocked-link="true"],
+html[data-blockinsta-single-reel="true"] [data-blockinsta-disallowed-reel="true"] {
+  display: none !important;
+}
+
+html[data-blockinsta-single-reel="true"],
+html[data-blockinsta-single-reel="true"] body {
+  overscroll-behavior: none !important;
+}
+
+html[data-blockinsta-leaving="true"]::before {
+  position: fixed !important;
+  z-index: 2147483647 !important;
+  inset: 0 !important;
+  display: block !important;
+  background: #f5f6fb !important;
+  content: "" !important;
+}
+
+html[data-blockinsta-hide-search-discovery="true"]
+  [data-blockinsta-search-discovery="true"],
+html[data-blockinsta-hide-search-discovery="true"]
+  [data-blockinsta-search-loader="true"],
+html[data-blockinsta-hide-search-discovery="true"]
+  [data-blockinsta-search-provisional="true"] {
+  display: none !important;
+}
+
+html[data-blockinsta-hide-search-discovery="true"]
+  [data-blockinsta-search-top-align="flex-column"] {
+  justify-content: flex-start !important;
+}
+
+html[data-blockinsta-hide-search-discovery="true"]
+  [data-blockinsta-search-top-align="flex-row"] {
+  align-items: flex-start !important;
+}
+
+html[data-blockinsta-hide-search-discovery="true"]
+  [data-blockinsta-search-top-align="grid"] {
+  align-content: start !important;
+}
+
+html[data-blockinsta-limit-home="true"] [data-blockinsta-feed-hidden],
+html[data-blockinsta-limit-home="true"] [data-blockinsta-after-cutoff] {
+  display: none !important;
+}
+
+html[data-blockinsta-limit-home="true"]
+  [data-blockinsta-feed-column="true"]
+  article:not([data-blockinsta-feed-classified="true"]) {
+  visibility: hidden !important;
+}
+
+html[data-blockinsta-limit-home="true"][data-blockinsta-feed-state="cutoff_reached"]
+  [data-blockinsta-feed-column="true"]
+  article:not([data-blockinsta-feed-accepted="true"]) {
+  display: none !important;
+}
+
+.blockinsta-feed-end {
+  width: min(100%, 470px) !important;
+  margin: 22px auto 40px !important;
+  padding: 28px !important;
+  border: 1px solid rgba(142, 133, 190, 0.35) !important;
+  border-radius: 22px !important;
+  color: #18213a !important;
+  background: #ffffff !important;
+  box-shadow: 0 16px 40px rgba(39, 30, 92, 0.11) !important;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
+  text-align: center !important;
+}
+
+.blockinsta-feed-end__eyebrow {
+  margin: 0 0 7px !important;
+  color: #5545aa !important;
+  font-size: 12px !important;
+  font-weight: 750 !important;
+  letter-spacing: 0.08em !important;
+  text-transform: uppercase !important;
+}
+
+.blockinsta-feed-end h2 {
+  margin: 0 !important;
+  color: #18213a !important;
+  font-size: 24px !important;
+  line-height: 1.2 !important;
+}
+
+.blockinsta-feed-end__message {
+  margin: 12px auto 20px !important;
+  color: #606b82 !important;
+  font-size: 14px !important;
+  line-height: 1.55 !important;
+}
+
+.blockinsta-feed-end__actions {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  justify-content: center !important;
+  gap: 10px !important;
+}
+
+.blockinsta-feed-end__actions button,
+.blockinsta-feed-end__actions a,
+.blockinsta-feed-status__link {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  min-height: 42px !important;
+  padding: 0 16px !important;
+  border: 1px solid #4d3da6 !important;
+  border-radius: 12px !important;
+  color: #ffffff !important;
+  background: #4d3da6 !important;
+  font: 700 13px/1 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
+  text-decoration: none !important;
+  cursor: pointer !important;
+}
+
+.blockinsta-feed-end__actions a,
+.blockinsta-feed-status__link {
+  color: #493b99 !important;
+  background: #f5f3ff !important;
+}
+
+.blockinsta-feed-status__link {
+  margin-top: 2px !important;
+}
+
+.blockinsta-feed-end__actions button:focus-visible,
+.blockinsta-feed-end__actions a:focus-visible,
+.blockinsta-feed-status__link:focus-visible {
+  outline: 3px solid rgba(77, 61, 166, 0.32) !important;
+  outline-offset: 3px !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html[data-blockinsta-active="true"] * {
+    scroll-behavior: auto !important;
+  }
+}

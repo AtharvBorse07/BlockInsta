@@ -1,0 +1,50 @@
+[
+  {
+    "name": "caught-up marker establishes the boundary",
+    "input": { "inFeed": true, "caughtUp": true, "article": true, "acceptedCount": 2 },
+    "action": "cutoff",
+    "reason": "caught_up"
+  },
+  {
+    "name": "recommendation section establishes the boundary",
+    "input": { "inFeed": true, "recommendationBoundary": true },
+    "action": "cutoff",
+    "reason": "recommendations"
+  },
+  {
+    "name": "sponsored article is hidden",
+    "input": { "inFeed": true, "article": true, "sponsored": true, "acceptedCount": 2 },
+    "action": "hide",
+    "reason": "sponsored"
+  },
+  {
+    "name": "suggested article is hidden",
+    "input": { "inFeed": true, "article": true, "suggested": true, "acceptedCount": 2 },
+    "action": "hide",
+    "reason": "suggested"
+  },
+  {
+    "name": "ordinary following article is kept",
+    "input": { "inFeed": true, "article": true, "acceptedCount": 2 },
+    "action": "keep",
+    "reason": null
+  },
+  {
+    "name": "twenty-fifth accepted article establishes local cutoff",
+    "input": { "inFeed": true, "article": true, "acceptedCount": 24 },
+    "action": "keep_and_cutoff",
+    "reason": "local_limit"
+  },
+  {
+    "name": "loading wins over marker-like content",
+    "input": { "inFeed": true, "loading": true, "caughtUp": true },
+    "action": "wait",
+    "reason": "loading"
+  },
+  {
+    "name": "dialog content is ignored",
+    "input": { "inFeed": true, "inDialog": true, "recommendationBoundary": true },
+    "action": "ignore",
+    "reason": null
+  }
+]

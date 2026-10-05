@@ -16,50 +16,33 @@
   "use strict";
 
   const RULESET_ID = "instagram_rules";
-  const EXPIRATION_ALARM = "blockinsta-unlock-expired";
 
-  function getPlan(candidate, now = Date.now()) {
-    const normalized = settingsApi.normalizeSettings(candidate, now);
-    const status = settingsApi.getStatus(normalized, now);
+  function getPlan(candidate) {
+    const settings = settingsApi.normalizeSettings(candidate);
     return {
-      settings: normalized,
-      status,
-      shouldEnableRuleset: status === "active",
-      alarmAt: status === "temporarily_unlocked"
-        ? normalized.unlockUntil
-        : null,
+      settings,
+      status: settingsApi.getStatus(settings),
+      shouldEnableRuleset: settings.enabled && settings.blockReelsFeed,
     };
   }
 
-  function getPublicStatus(candidate, now = Date.now()) {
-    const plan = getPlan(candidate, now);
+  function getPublicStatus(candidate) {
+    const plan = getPlan(candidate);
     return {
       schemaVersion: plan.settings.schemaVersion,
       enabled: plan.settings.enabled,
-      unlockUntil: plan.settings.unlockUntil,
+      blockReelsFeed: plan.settings.blockReelsFeed,
+      hideSearchDiscovery: plan.settings.hideSearchDiscovery,
+      limitHomeFeed: plan.settings.limitHomeFeed,
+      limitIndividualReels: plan.settings.limitIndividualReels,
+      preferFollowingFeed: plan.settings.preferFollowingFeed,
       status: plan.status,
-      remainingMs: settingsApi.getRemainingMs(plan.settings, now),
-      now,
     };
-  }
-
-  function isInstagramUrl(value) {
-    try {
-      const url = new URL(value);
-      const hostname = url.hostname.toLowerCase();
-      return (url.protocol === "https:" || url.protocol === "http:")
-        && (hostname === "instagram.com" || hostname.endsWith(".instagram.com"));
-    } catch {
-      return false;
-    }
   }
 
   return Object.freeze({
     RULESET_ID,
-    EXPIRATION_ALARM,
     getPlan,
     getPublicStatus,
-    isInstagramUrl,
   });
 });
-

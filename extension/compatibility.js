@@ -51,6 +51,13 @@
       return promiseOrCallbackCall(api.storage.local, "set", [values]);
     },
 
+    permissionsContains(options) {
+      if (!api.permissions || !api.permissions.contains) {
+        return Promise.resolve(null);
+      }
+      return promiseOrCallbackCall(api.permissions, "contains", [options]);
+    },
+
     getEnabledRulesets() {
       return promiseOrCallbackCall(
         api.declarativeNetRequest,
@@ -65,18 +72,6 @@
         "updateEnabledRulesets",
         [options],
       );
-    },
-
-    createAlarm(name, when) {
-      requireApi(api.alarms && api.alarms.create, "alarms.create");
-      const result = api.alarms.create(name, { when });
-      return result && typeof result.then === "function"
-        ? result
-        : Promise.resolve();
-    },
-
-    clearAlarm(name) {
-      return promiseOrCallbackCall(api.alarms, "clear", [name]);
     },
 
     sendMessage(message) {

@@ -20,20 +20,16 @@ function serialize(operation) {
   return result;
 }
 
-async function readNormalizedSettings(now = Date.now()) {
+async function readNormalizedSettings() {
   const stored = await compat.storageGet([STORAGE_KEY]);
   const candidate = stored ? stored[STORAGE_KEY] : undefined;
-  const normalized = settingsApi.normalizeSettings(candidate, now);
+  const normalized = settingsApi.normalizeSettings(candidate);
 
   if (!candidate || !settingsApi.equal(candidate, normalized)) {
     await compat.storageSet({ [STORAGE_KEY]: normalized });
   }
 
   return normalized;
-}
-
-async function saveSettings(settings) {
-  await compat.storageSet({ [STORAGE_KEY]: settings });
 }
 
 async function setRulesetEnabled(enabled) {
@@ -49,43 +45,25 @@ async function setRulesetEnabled(enabled) {
   });
 }
 
-async function applySettings(candidate, now = Date.now()) {
-  const plan = blockingApi.getPlan(candidate, now);
-  await saveSettings(plan.settings);
+async function applySettings(candidate) {
+  const plan = blockingApi.getPlan(candidate);
+  await compat.storageSet({ [STORAGE_KEY]: plan.settings });
   await setRulesetEnabled(plan.shouldEnableRuleset);
-  await compat.clearAlarm(blockingApi.EXPIRATION_ALARM);
-
-  if (plan.alarmAt !== null) {
-    await compat.createAlarm(blockingApi.EXPIRATION_ALARM, plan.alarmAt);
-  }
-
-  return blockingApi.getPublicStatus(plan.settings, now);
+  return blockingApi.getPublicStatus(plan.settings);
 }
 
-async function synchronize(now = Date.now()) {
-  const settings = await readNormalizedSettings(now);
-  return applySettings(settings, now);
+async function synchronize() {
+  return applySettings(await readNormalizedSettings());
 }
 
 async function handleMessage(message) {
-  const now = Date.now();
-  const current = await readNormalizedSettings(now);
+  const current = await readNormalizedSettings();
 
   switch (message && message.type) {
     case "GET_STATUS":
-      return applySettings(current, now);
+      return applySettings(current);
     case "SET_ENABLED":
-      return applySettings(
-        settingsApi.setEnabled(current, message.enabled, now),
-        now,
-      );
-    case "TEMPORARY_UNLOCK":
-      return applySettings(
-        settingsApi.startTemporaryUnlock(current, message.minutes, now),
-        now,
-      );
-    case "REENABLE_NOW":
-      return applySettings(settingsApi.reenableNow(current, now), now);
+      return applySettings(settingsApi.setEnabled(current, message.enabled));
     default:
       throw new Error("Unknown BlockInsta message.");
   }
@@ -97,12 +75,6 @@ api.runtime.onInstalled.addListener(() => {
 
 api.runtime.onStartup.addListener(() => {
   void serialize(() => synchronize());
-});
-
-api.alarms.onAlarm.addListener((alarm) => {
-  if (alarm.name === blockingApi.EXPIRATION_ALARM) {
-    void serialize(() => synchronize());
-  }
 });
 
 api.runtime.onMessage.addListener((message, _sender, sendResponse) => {
@@ -117,4 +89,3 @@ api.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 });
 
 void serialize(() => synchronize());
-

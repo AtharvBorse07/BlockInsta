@@ -1,0 +1,43 @@
+topic: "Remove Instagram's idle Search/Explore discovery grid while preserving search in BlockInsta"
+research_date: "2026-10-05"
+time_range: "2024-01-01 through 2026-10-05, with older standards retained when foundational"
+decision_context:
+  requested_outcome: "The Search landing is blank below its native search UI; typed search continues to work normally."
+  architectural_baseline: "BlockInsta v2.1.1 source and the owner's supplied compact-layout screenshot"
+  scope_boundary: "Remove unsolicited discovery content, not the search control, user-initiated results, or distinct result destinations."
+items:
+  - id: repository_route_and_guard_model
+    name: "Current route and guard architecture"
+    purpose: "Trace Search, Explore, Home, profile, post, and Reel classification plus SPA coordination and cleanup ownership."
+  - id: entry_point_topology
+    name: "Search entry points and layouts"
+    purpose: "Verify compact Search/Explore landing, full-page search, desktop side panel, overlay, and responsive variants."
+  - id: search_intent_state
+    name: "Search intent and transition model"
+    purpose: "Distinguish idle discovery, focus with recent searches, composition, autocomplete, loading, results, clear, and return to idle."
+  - id: discovery_ownership
+    name: "Discovery-grid DOM ownership"
+    purpose: "Find the narrowest stable discovery root and loader without relying on generated class names or hiding search-owned UI."
+  - id: result_and_system_taxonomy
+    name: "Results and system content that must remain"
+    purpose: "Preserve accounts, tags, audio, places where available, posts, Reels, Meta AI, no-results, safety, and policy notices."
+  - id: first_paint_and_scroll
+    name: "First-paint and endless-loading enforcement"
+    purpose: "Prevent thumbnail flashes, collapse the discovery grid, suppress its pagination sentinel, and avoid repeated hidden loading."
+  - id: lifecycle_and_node_reuse
+    name: "SPA lifecycle and DOM reuse"
+    purpose: "Handle soft navigation, Back/Forward, bfcache, restored input values, result dialogs, recycled nodes, and live setting changes."
+  - id: accessibility_and_input_methods
+    name: "Accessibility and input-method preservation"
+    purpose: "Keep combobox/listbox semantics, focus, announcements, keyboard/touch/paste/IME behavior, and Escape/Back restoration intact."
+  - id: privacy_performance_compatibility
+    name: "Privacy, performance, and browser compatibility"
+    purpose: "Use local DOM-only enforcement with narrow observers, no retained queries, no new permissions, and Chromium/Safari coverage."
+  - id: verification_and_rollback
+    name: "Verification and rollback"
+    purpose: "Define sanitized fixtures, browser smoke tests, live acceptance, fail-open behavior, and an internal feature kill switch."
+execution:
+  batch_size: 1
+  items_per_agent: 10
+  output_dir: "./results"
+

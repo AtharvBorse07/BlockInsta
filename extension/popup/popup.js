@@ -2,25 +2,23 @@
   "use strict";
 
   const compat = globalThis.BlockInstaCompat;
-  const settingsApi = globalThis.BlockInstaSettings;
   const enabledToggle = document.querySelector("#enabled-toggle");
   const statusPanel = document.querySelector("#status-panel");
   const statusTitle = document.querySelector("#status-title");
   const statusDetail = document.querySelector("#status-detail");
-  const unlockButtons = [...document.querySelectorAll("[data-unlock-minutes]")];
-  const reenableButton = document.querySelector("#reenable-button");
   const errorMessage = document.querySelector("#error-message");
+  const INSTAGRAM_ORIGINS = [
+    "*://instagram.com/*",
+    "*://*.instagram.com/*",
+  ];
 
   let currentStatus = null;
+  let permissionGranted = null;
   let busy = false;
 
   function setBusy(value) {
     busy = value;
     enabledToggle.disabled = value;
-    unlockButtons.forEach((button) => {
-      button.disabled = value || (currentStatus && !currentStatus.enabled);
-    });
-    reenableButton.disabled = value;
   }
 
   function showError(message) {
@@ -33,46 +31,56 @@
     errorMessage.hidden = true;
   }
 
-  function render(status) {
-    currentStatus = status;
-    enabledToggle.checked = status.enabled;
-    statusPanel.dataset.state = status.status;
-
-    if (status.status === "active") {
-      statusTitle.textContent = "Blocking is active";
-      statusDetail.textContent = "Instagram visits will show the block page.";
-      reenableButton.hidden = true;
-    } else if (status.status === "temporarily_unlocked") {
-      statusTitle.textContent = "Temporarily unlocked";
-      statusDetail.textContent = `Blocking resumes in ${settingsApi.formatRemaining(
-        status.unlockUntil - Date.now(),
-      )}.`;
-      reenableButton.hidden = false;
-    } else {
-      statusTitle.textContent = "Blocking is off";
-      statusDetail.textContent = "Instagram is currently available.";
-      reenableButton.hidden = true;
+  function render() {
+    if (!currentStatus) {
+      return;
     }
 
+    enabledToggle.checked = currentStatus.enabled;
+    if (currentStatus.enabled && permissionGranted === false) {
+      statusPanel.dataset.state = "permission_missing";
+      statusTitle.textContent = "Instagram access is not granted";
+      statusDetail.textContent = "Allow this extension on instagram.com in your browser settings.";
+    } else if (currentStatus.enabled) {
+      statusPanel.dataset.state = "active";
+      statusTitle.textContent = "Endless feeds are blocked";
+      statusDetail.textContent = "Home is finite and Search opens without its discovery feed. Messages, profiles, search results, and one deliberately opened Reel remain available.";
+    } else {
+      statusPanel.dataset.state = "disabled";
+      statusTitle.textContent = "Blocking is off";
+      statusDetail.textContent = "Instagram's ordinary Home, Search discovery, and Reels experiences are currently available.";
+    }
     setBusy(busy);
+  }
+
+  async function refreshPermission() {
+    try {
+      permissionGranted = await compat.permissionsContains({
+        origins: INSTAGRAM_ORIGINS,
+      });
+    } catch {
+      permissionGranted = null;
+    }
   }
 
   async function send(message) {
     clearError();
     setBusy(true);
     try {
-      const response = await compat.sendMessage(message);
+      const [response] = await Promise.all([
+        compat.sendMessage(message),
+        refreshPermission(),
+      ]);
       if (!response || !response.ok) {
         throw new Error(response && response.error
           ? response.error
           : "The extension did not respond.");
       }
-      render(response.status);
+      currentStatus = response.status;
+      render();
     } catch (error) {
       showError(error instanceof Error ? error.message : String(error));
-      if (currentStatus) {
-        render(currentStatus);
-      }
+      render();
     } finally {
       setBusy(false);
     }
@@ -82,31 +90,5 @@
     void send({ type: "SET_ENABLED", enabled: enabledToggle.checked });
   });
 
-  unlockButtons.forEach((button) => {
-    button.addEventListener("click", () => {
-      void send({
-        type: "TEMPORARY_UNLOCK",
-        minutes: Number(button.dataset.unlockMinutes),
-      });
-    });
-  });
-
-  reenableButton.addEventListener("click", () => {
-    void send({ type: "REENABLE_NOW" });
-  });
-
-  window.setInterval(() => {
-    if (!currentStatus || currentStatus.status !== "temporarily_unlocked") {
-      return;
-    }
-
-    if (currentStatus.unlockUntil <= Date.now()) {
-      void send({ type: "GET_STATUS" });
-      return;
-    }
-    render(currentStatus);
-  }, 1000);
-
   void send({ type: "GET_STATUS" });
 })();
-

@@ -1,0 +1,102 @@
+[
+  {
+    "name": "verified idle media grid is hidden",
+    "input": {
+      "eligible": true,
+      "discoveryGrid": true,
+      "signalCount": 2,
+      "mediaLinkCount": 9
+    },
+    "action": "hide",
+    "reason": "idle_discovery"
+  },
+  {
+    "name": "weak grid fails open",
+    "input": {
+      "eligible": true,
+      "discoveryGrid": true,
+      "signalCount": 1,
+      "mediaLinkCount": 9
+    },
+    "action": "ambiguous",
+    "reason": "weak_grid"
+  },
+  {
+    "name": "search controlled results outrank grid appearance",
+    "input": {
+      "eligible": true,
+      "searchControlled": true,
+      "discoveryGrid": true,
+      "signalCount": 3,
+      "mediaLinkCount": 12
+    },
+    "action": "keep",
+    "reason": "search_owned"
+  },
+  {
+    "name": "active query content is retained",
+    "input": {
+      "eligible": true,
+      "queryActive": true,
+      "discoveryGrid": true,
+      "signalCount": 3,
+      "mediaLinkCount": 12
+    },
+    "action": "keep",
+    "reason": "search_active"
+  },
+  {
+    "name": "composition content is retained",
+    "input": {
+      "eligible": true,
+      "composing": true,
+      "discoveryGrid": true,
+      "signalCount": 3,
+      "mediaLinkCount": 12
+    },
+    "action": "keep",
+    "reason": "search_active"
+  },
+  {
+    "name": "system state is retained",
+    "input": {
+      "eligible": true,
+      "systemState": true
+    },
+    "action": "keep",
+    "reason": "system_state"
+  },
+  {
+    "name": "dialog content is ignored",
+    "input": {
+      "eligible": true,
+      "inDialog": true,
+      "discoveryGrid": true,
+      "signalCount": 3,
+      "mediaLinkCount": 12
+    },
+    "action": "ignore",
+    "reason": null
+  },
+  {
+    "name": "owned discovery loader is hidden",
+    "input": {
+      "eligible": true,
+      "discoveryLoader": true,
+      "discoveryOwned": true
+    },
+    "action": "hide",
+    "reason": "discovery_loader"
+  },
+  {
+    "name": "unowned loader fails open",
+    "input": {
+      "eligible": true,
+      "discoveryLoader": true,
+      "discoveryOwned": false
+    },
+    "action": "ambiguous",
+    "reason": "unowned_loader"
+  }
+]
+

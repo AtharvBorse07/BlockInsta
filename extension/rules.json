@@ -9,7 +9,8 @@
       }
     },
     "condition": {
-      "urlFilter": "||instagram.com^",
+      "regexFilter": "^https?://([a-z0-9-]+\\.)*instagram\\.com/reels/?(\\?.*)?$",
+      "isUrlFilterCaseSensitive": false,
       "resourceTypes": [
         "main_frame"
       ]
