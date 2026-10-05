@@ -2,6 +2,8 @@
   "use strict";
 
   const compat = globalThis.BlockInstaCompat;
+  const controller = globalThis.BlockInstaPopupController
+    .createPopupController(compat);
   const enabledToggle = document.querySelector("#enabled-toggle");
   const statusPanel = document.querySelector("#status-panel");
   const statusTitle = document.querySelector("#status-title");
@@ -63,20 +65,17 @@
     }
   }
 
-  async function send(message) {
+  async function refreshStatus(enabled) {
     clearError();
     setBusy(true);
     try {
-      const [response] = await Promise.all([
-        compat.sendMessage(message),
+      const [status] = await Promise.all([
+        typeof enabled === "boolean"
+          ? controller.setEnabled(enabled)
+          : controller.getStatus(),
         refreshPermission(),
       ]);
-      if (!response || !response.ok) {
-        throw new Error(response && response.error
-          ? response.error
-          : "The extension did not respond.");
-      }
-      currentStatus = response.status;
+      currentStatus = status;
       render();
     } catch (error) {
       showError(error instanceof Error ? error.message : String(error));
@@ -87,8 +86,8 @@
   }
 
   enabledToggle.addEventListener("change", () => {
-    void send({ type: "SET_ENABLED", enabled: enabledToggle.checked });
+    void refreshStatus(enabledToggle.checked);
   });
 
-  void send({ type: "GET_STATUS" });
+  void refreshStatus();
 })();

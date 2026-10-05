@@ -1,31 +1,18 @@
 {
   "manifest_version": 3,
-  "name": "BlockInsta",
+  "name": "BlockInsta for Orion",
   "version": "2.2.0",
-  "description": "Block endless Instagram Reels, limit Home, and remove Search discovery while keeping messages, profiles, and search results.",
+  "description": "Block endless Instagram Reels, limit Home, and remove Search discovery in Orion without relying on background APIs.",
   "permissions": [
-    "storage",
-    "declarativeNetRequestWithHostAccess"
+    "storage"
   ],
   "host_permissions": [
     "*://instagram.com/*",
     "*://*.instagram.com/*"
   ],
-  "background": {
-    "service_worker": "background-v2.js"
-  },
   "action": {
     "default_title": "BlockInsta",
     "default_popup": "popup/popup.html"
-  },
-  "declarative_net_request": {
-    "rule_resources": [
-      {
-        "id": "instagram_rules",
-        "enabled": true,
-        "path": "rules.json"
-      }
-    ]
   },
   "content_scripts": [
     {
@@ -34,6 +21,7 @@
         "*://*.instagram.com/*"
       ],
       "js": [
+        "orion.js",
         "compatibility.js",
         "shared/settings.js",
         "shared/settings-storage.js",
@@ -78,4 +66,3 @@
     "extension_pages": "script-src 'self'; object-src 'none';"
   }
 }
-

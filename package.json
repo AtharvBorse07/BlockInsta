@@ -8,9 +8,11 @@
     "lint": "node scripts/lint.js",
     "test": "node --test",
     "smoke:chromium": "node scripts/smoke-chrome.js",
-    "validate": "node scripts/validate-extension.js",
+    "validate": "node scripts/validate-extension.js && node scripts/validate-orion.js",
+    "validate:orion": "node scripts/validate-orion.js",
     "check": "npm run lint && npm test && npm run validate",
-    "package": "node scripts/package-extension.js"
+    "package": "node scripts/package-extension.js",
+    "package:orion": "node scripts/package-orion.js"
   },
   "engines": {
     "node": ">=20"

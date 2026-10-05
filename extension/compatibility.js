@@ -1,15 +1,8 @@
 (function initializeCompatibility(root) {
   "use strict";
 
-  const api = root.browser || root.chrome;
+  const api = root.browser || root.chrome || {};
   const usesPromiseNamespace = Boolean(root.browser);
-
-  function requireApi(value, name) {
-    if (!value) {
-      throw new Error(`Required WebExtension API is unavailable: ${name}`);
-    }
-    return value;
-  }
 
   function lastRuntimeError() {
     return root.chrome && root.chrome.runtime && root.chrome.runtime.lastError;
@@ -33,7 +26,11 @@
   }
 
   function promiseOrCallbackCall(target, methodName, args) {
-    requireApi(target && target[methodName], methodName);
+    if (!target || typeof target[methodName] !== "function") {
+      return Promise.reject(new Error(
+        `WebExtension API is unavailable: ${methodName}`,
+      ));
+    }
     if (usesPromiseNamespace) {
       return Promise.resolve(target[methodName](...args));
     }
@@ -41,14 +38,14 @@
   }
 
   const compatibility = {
-    api: requireApi(api, "browser/chrome"),
+    api,
 
     storageGet(keys) {
-      return promiseOrCallbackCall(api.storage.local, "get", [keys]);
+      return promiseOrCallbackCall(api.storage && api.storage.local, "get", [keys]);
     },
 
     storageSet(values) {
-      return promiseOrCallbackCall(api.storage.local, "set", [values]);
+      return promiseOrCallbackCall(api.storage && api.storage.local, "set", [values]);
     },
 
     permissionsContains(options) {
@@ -59,6 +56,10 @@
     },
 
     getEnabledRulesets() {
+      if (!api.declarativeNetRequest
+        || typeof api.declarativeNetRequest.getEnabledRulesets !== "function") {
+        return Promise.resolve([]);
+      }
       return promiseOrCallbackCall(
         api.declarativeNetRequest,
         "getEnabledRulesets",
@@ -67,6 +68,10 @@
     },
 
     updateEnabledRulesets(options) {
+      if (!api.declarativeNetRequest
+        || typeof api.declarativeNetRequest.updateEnabledRulesets !== "function") {
+        return Promise.resolve(false);
+      }
       return promiseOrCallbackCall(
         api.declarativeNetRequest,
         "updateEnabledRulesets",
@@ -77,8 +82,22 @@
     sendMessage(message) {
       return promiseOrCallbackCall(api.runtime, "sendMessage", [message]);
     },
+
+    runtimeGetURL(path) {
+      if (!api.runtime || typeof api.runtime.getURL !== "function") {
+        return null;
+      }
+      try {
+        return api.runtime.getURL(path);
+      } catch {
+        return null;
+      }
+    },
   };
 
   root.BlockInstaCompat = compatibility;
+  if (typeof module !== "undefined" && module.exports) {
+    module.exports = compatibility;
+  }
 })(globalThis);
 

@@ -7,12 +7,15 @@
 
   const compat = globalThis.BlockInstaCompat;
   const settingsApi = globalThis.BlockInstaSettings;
+  const settingsStorageApi = globalThis.BlockInstaSettingsStorage;
   const routesApi = globalThis.BlockInstaRoutes;
   const feedGuardApi = globalThis.BlockInstaFeedGuard;
   const searchGuardApi = globalThis.BlockInstaSearchGuard;
   const api = compat.api;
-  const STORAGE_KEY = "settings";
+  const buildConfig = globalThis.BlockInstaBuild || {};
+  const STORAGE_KEY = settingsStorageApi.STORAGE_KEY;
   const LOCATION_CHECK_MS = 250;
+  const SETTINGS_CHECK_MS = 5000;
   const PENDING_VIEWER_MS = 3000;
   const BLOCKED_KEYS = new Set([
     " ",
@@ -30,13 +33,20 @@
   let lastHref = window.location.href;
   let redirecting = false;
   let scanScheduled = false;
+  let settingsReady = false;
+  let settingsReadInFlight = null;
+  let lastSettingsReadAt = 0;
 
   const feedGuard = feedGuardApi.createFeedGuard();
   const searchGuard = searchGuardApi.createSearchGuard();
+  const settingsStore = settingsStorageApi.createSettingsStore(compat);
 
   const root = document.documentElement;
   root.dataset.blockinstaActive = "true";
   root.dataset.blockinstaBlockFeed = "true";
+  if (routesApi.isBlockedCollectionRoute(window.location.href)) {
+    root.dataset.blockinstaPendingReels = "true";
+  }
   searchGuard.updateSettings(settings);
 
   function protectionEnabled() {
@@ -70,6 +80,97 @@
     });
   }
 
+  function createElement(name, attributes = {}, text = "") {
+    const element = document.createElement(name);
+    for (const [attribute, value] of Object.entries(attributes)) {
+      element.setAttribute(attribute, value);
+    }
+    if (text) {
+      element.textContent = text;
+    }
+    return element;
+  }
+
+  function renderInlineBlockedPage(reason) {
+    window.stop();
+    const isNextReel = reason === "next_reel";
+    document.title = isNextReel
+      ? "Reel continuation blocked - BlockInsta"
+      : "Infinite Reels blocked - BlockInsta";
+    root.lang = "en";
+    root.dataset.blockinstaInlineBlocked = "true";
+    delete root.dataset.blockinstaPendingReels;
+
+    const head = createElement("head");
+    head.append(
+      createElement("meta", { charset: "utf-8" }),
+      createElement("meta", {
+        name: "viewport",
+        content: "width=device-width, initial-scale=1, viewport-fit=cover",
+      }),
+      createElement("meta", {
+        name: "color-scheme",
+        content: "light dark",
+      }),
+      createElement("title", {}, document.title),
+    );
+
+    const body = createElement("body");
+    const main = createElement("main", {
+      class: "blockinsta-inline-page",
+    });
+    const card = createElement("section", {
+      class: "blockinsta-inline-card",
+      "aria-labelledby": "blockinsta-inline-title",
+    });
+    card.append(
+      createElement("p", { class: "blockinsta-inline-eyebrow" }, "BlockInsta"),
+      createElement(
+        "h1",
+        { id: "blockinsta-inline-title" },
+        isNextReel ? "That is the end of this Reel" : "Infinite Reels are blocked",
+      ),
+      createElement(
+        "p",
+        { class: "blockinsta-inline-message" },
+        isNextReel
+          ? "You can watch one Reel you deliberately opened. Continuing would open another Reel, so BlockInsta stopped here."
+          : "The endless Reels collection is unavailable. Messages, posts, profiles, and individual Reels remain available.",
+      ),
+    );
+
+    const actions = createElement("div", {
+      class: "blockinsta-inline-actions",
+    });
+    const back = createElement("button", { type: "button" }, "Go back");
+    back.addEventListener("click", () => {
+      if (window.history.length > 1) {
+        window.history.back();
+      }
+    });
+    actions.append(
+      back,
+      createElement("a", {
+        href: "https://www.instagram.com/direct/inbox/",
+      }, "Open Messages"),
+      createElement("a", {
+        href: "https://www.instagram.com/",
+      }, "Open Home"),
+    );
+    card.append(actions);
+    main.append(
+      card,
+      createElement(
+        "p",
+        { class: "blockinsta-inline-scope" },
+        "BlockInsta changes Instagram in this browser, not the Instagram app.",
+      ),
+    );
+    body.append(main);
+    root.replaceChildren(head, body);
+    back.focus();
+  }
+
   function exitInstagram(reason) {
     if (redirecting) {
       return;
@@ -80,8 +181,16 @@
     const safeReason = reason === "next_reel"
       ? "next_reel"
       : "infinite_reels";
-    const target = `${api.runtime.getURL("blocked/blocked.html")}?reason=${safeReason}`;
-    window.location.assign(target);
+    const extensionPage = compat.runtimeGetURL("blocked/blocked.html");
+    if (!buildConfig.preferInlineBlockedPage && extensionPage) {
+      try {
+        window.location.assign(`${extensionPage}?reason=${safeReason}`);
+        return;
+      } catch {
+        // Fall through to a page rendered entirely by the content script.
+      }
+    }
+    renderInlineBlockedPage(safeReason);
   }
 
   function currentClassification() {
@@ -105,6 +214,11 @@
       allowedItemId,
       settings,
     );
+
+    if (decision.action === "exit" && !settingsReady) {
+      root.dataset.blockinstaPendingReels = "true";
+      return;
+    }
 
     if (decision.action === "exit") {
       exitInstagram(decision.reason);
@@ -316,11 +430,14 @@
   }
 
   function handlePotentialNavigation() {
+    void refreshSettings(true);
     window.setTimeout(guardLocation, 0);
   }
 
   function applySettings(candidate) {
     settings = settingsApi.normalizeSettings(candidate);
+    settingsReady = true;
+    delete root.dataset.blockinstaPendingReels;
     updateRootState(Boolean(allowedItemId));
     searchGuard.updateSettings(settings);
     const feedResult = feedGuard.updateSettings(settings);
@@ -328,6 +445,30 @@
       return;
     }
     guardLocation();
+  }
+
+  function refreshSettings(force = false) {
+    const now = Date.now();
+    if (settingsReadInFlight) {
+      return settingsReadInFlight;
+    }
+    if (!force && now - lastSettingsReadAt < SETTINGS_CHECK_MS) {
+      return Promise.resolve(settings);
+    }
+    lastSettingsReadAt = now;
+    settingsReadInFlight = settingsStore.readNormalized().then(
+      (stored) => {
+        applySettings(stored);
+        return settings;
+      },
+      () => {
+        applySettings(settingsApi.DEFAULT_SETTINGS);
+        return settings;
+      },
+    ).finally(() => {
+      settingsReadInFlight = null;
+    });
+    return settingsReadInFlight;
   }
 
   document.addEventListener("click", handleClick, true);
@@ -340,6 +481,11 @@
   window.addEventListener("popstate", handlePotentialNavigation, true);
   window.addEventListener("hashchange", handlePotentialNavigation, true);
   window.addEventListener("pageshow", handlePotentialNavigation, true);
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") {
+      void refreshSettings(true);
+    }
+  }, true);
 
   if (window.navigation
     && typeof window.navigation.addEventListener === "function") {
@@ -353,7 +499,7 @@
         allowedItemId,
         settings,
       );
-      if (decision.action === "exit") {
+      if (decision.action === "exit" && settingsReady) {
         if (event.cancelable) {
           event.preventDefault();
         }
@@ -368,7 +514,7 @@
     feedGuard.handleDocumentMutations(mutations);
     searchGuard.handleDocumentMutations(mutations);
     if (window.location.href !== lastHref) {
-      guardLocation();
+      handlePotentialNavigation();
       return;
     }
     scheduleScan();
@@ -379,6 +525,7 @@
     if (window.location.href !== lastHref || allowedItemId) {
       guardLocation();
     }
+    void refreshSettings();
   }, LOCATION_CHECK_MS);
 
   if (api.storage && api.storage.onChanged) {
@@ -389,10 +536,7 @@
     });
   }
 
-  compat.storageGet([STORAGE_KEY]).then(
-    (stored) => applySettings(stored && stored[STORAGE_KEY]),
-    () => applySettings(settingsApi.DEFAULT_SETTINGS),
-  );
+  void refreshSettings(true);
 
   guardLocation();
 })();

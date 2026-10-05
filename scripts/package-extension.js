@@ -119,19 +119,28 @@ function createZip(files) {
   return Buffer.concat([...localParts, centralDirectory, end]);
 }
 
-const validation = validateExtension(extensionDirectory);
-if (validation.errors.length > 0) {
-  throw new Error(
-    `Extension validation failed:\n${validation.errors.map((error) => `- ${error}`).join("\n")}`,
+function packageExtension() {
+  const validation = validateExtension(extensionDirectory);
+  if (validation.errors.length > 0) {
+    throw new Error(
+      `Extension validation failed:\n${validation.errors.map((error) => `- ${error}`).join("\n")}`,
+    );
+  }
+
+  const manifest = validation.manifest;
+  const outputPath = path.join(
+    outputDirectory,
+    `blockinsta-extension-v${manifest.version}.zip`,
   );
+  fs.mkdirSync(outputDirectory, { recursive: true });
+  fs.writeFileSync(outputPath, createZip(listFiles(extensionDirectory)));
+  process.stdout.write(`Created ${path.relative(projectRoot, outputPath)}\n`);
+  return outputPath;
 }
 
-const manifest = validation.manifest;
-const outputPath = path.join(
-  outputDirectory,
-  `blockinsta-extension-v${manifest.version}.zip`,
-);
-fs.mkdirSync(outputDirectory, { recursive: true });
-fs.writeFileSync(outputPath, createZip(listFiles(extensionDirectory)));
-process.stdout.write(`Created ${path.relative(projectRoot, outputPath)}\n`);
+if (require.main === module) {
+  packageExtension();
+}
+
+module.exports = { createZip, listFiles, packageExtension };
 

@@ -116,6 +116,21 @@ prefers Edge or Brave on Windows when available.
 `manifest.json` at the ZIP root. Browser-generated `extension/_metadata` is
 excluded from the package without deleting the local folder.
 
+## Orion on iPhone
+
+This repository also contains a generated Orion edition that omits the
+background service worker and Declarative Net Request. It uses direct local
+storage and content-script enforcement so its core behavior does not depend on
+those incompletely supported APIs.
+
+```powershell
+npm run package:orion
+```
+
+The command writes `dist/blockinsta-orion-v2.2.0.zip` without replacing the
+ordinary package. See [ORION.md](ORION.md) for installation, device testing,
+debugging, limitations, and removal instructions.
+
 ## Test in Chrome or Brave on Windows
 
 1. Run `npm run check`.

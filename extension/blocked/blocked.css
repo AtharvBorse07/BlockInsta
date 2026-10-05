@@ -170,6 +170,37 @@ h1 {
   }
 }
 
+@media (prefers-color-scheme: dark) {
+  :root,
+  body {
+    color: #f2f3fa;
+    background: #11131a;
+  }
+
+  .block-card {
+    border-color: #373a49;
+    background: #1b1e27;
+    box-shadow: 0 24px 70px rgba(0, 0, 0, 0.32);
+  }
+
+  .eyebrow,
+  .message,
+  .action-note,
+  .scope-note {
+    color: #c4c8d7;
+  }
+
+  .secondary-button {
+    border-color: #4a4e61;
+    color: #ded9ff;
+    background: #282b37;
+  }
+
+  .text-button {
+    color: #c8c0ff;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

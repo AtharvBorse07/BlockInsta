@@ -3,14 +3,17 @@
 importScripts(
   "compatibility.js",
   "shared/settings.js",
+  "shared/settings-storage.js",
   "shared/blocking.js",
 );
 
 const compat = globalThis.BlockInstaCompat;
 const settingsApi = globalThis.BlockInstaSettings;
+const settingsStorageApi = globalThis.BlockInstaSettingsStorage;
 const blockingApi = globalThis.BlockInstaBlocking;
 const api = compat.api;
-const STORAGE_KEY = "settings";
+const STORAGE_KEY = settingsStorageApi.STORAGE_KEY;
+const settingsStore = settingsStorageApi.createSettingsStore(compat);
 
 let operationQueue = Promise.resolve();
 
@@ -21,15 +24,7 @@ function serialize(operation) {
 }
 
 async function readNormalizedSettings() {
-  const stored = await compat.storageGet([STORAGE_KEY]);
-  const candidate = stored ? stored[STORAGE_KEY] : undefined;
-  const normalized = settingsApi.normalizeSettings(candidate);
-
-  if (!candidate || !settingsApi.equal(candidate, normalized)) {
-    await compat.storageSet({ [STORAGE_KEY]: normalized });
-  }
-
-  return normalized;
+  return settingsStore.readNormalized();
 }
 
 async function setRulesetEnabled(enabled) {
@@ -64,6 +59,8 @@ async function handleMessage(message) {
       return applySettings(current);
     case "SET_ENABLED":
       return applySettings(settingsApi.setEnabled(current, message.enabled));
+    case "SYNC_SETTINGS":
+      return applySettings(current);
     default:
       throw new Error("Unknown BlockInsta message.");
   }
@@ -87,5 +84,19 @@ api.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   );
   return true;
 });
+
+if (api.storage && api.storage.onChanged) {
+  api.storage.onChanged.addListener((changes, areaName) => {
+    if (areaName !== "local" || !changes[STORAGE_KEY]) {
+      return;
+    }
+    const nextSettings = settingsApi.normalizeSettings(
+      changes[STORAGE_KEY].newValue,
+    );
+    void serialize(() => setRulesetEnabled(
+      blockingApi.getPlan(nextSettings).shouldEnableRuleset,
+    ));
+  });
+}
 
 void serialize(() => synchronize());
